@@ -3,11 +3,12 @@ const { getPaymentAddress, getPaymentPrivateKey } = require('sendover')
 const createNonce = require('./utils/createNonce')
 const verifyNonce = require('./utils/verifyNonce')
 const AUTHRITE_VERSION = '0.1'
+
 const middleware = (config = {}) => (req, res, next) => {
   if (!config.initalRequestPath) {
     config.initalRequestPath = '/authrite/initialRequest'
   }
-  if (req.path === config.initialRequestPath) {
+  if (req.path === config.initalRequestPath) {
     if (AUTHRITE_VERSION !== req.body.authrite) {
       return res.status(400).json({
         error: 'Authrite version incompatible'
@@ -21,14 +22,17 @@ const middleware = (config = {}) => (req, res, next) => {
       invoiceNumber: 'authrite message signature-' + req.body.nonce + ' ' + serverNonce,
       returnType: 'hex'
     })
-    const signature = bsv.crypto.ECDSA.sign(bsv.crypto.Hash.sha256(Buffer.from(message)), bsv.PrivateKey.fromHex(derivedPrivateKey))
+    const signature = bsv.crypto.ECDSA.sign(
+      bsv.crypto.Hash.sha256(Buffer.from(message)),
+      bsv.PrivateKey.fromHex(derivedPrivateKey)
+    )
     return res.status(200).json({
       authrite: '0.1',
       messageType: 'initialResponse',
       identityKey: bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
       nonce: serverNonce,
-      certificates: [],
-      requestedCertificates: [],
+      certificates: '[]',
+      requestedCertificates: '[]',
       signature: signature.toString()
     })
   }
@@ -45,7 +49,7 @@ const middleware = (config = {}) => (req, res, next) => {
   // When the server response comes back, validate the signature according to the specification
   const signingPublicKey = getPaymentAddress({
     senderPrivateKey: config.serverPrivateKey,
-    recipientPublicKey: req.headers['X-Authrite-Indentity-Key'],
+    recipientPublicKey: req.headers['X-Authrite-Identity-Key'],
     invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + req.headers['X-Authrite-YourNonce'],
     returnType: 'publicKey'
   })
@@ -62,7 +66,7 @@ const middleware = (config = {}) => (req, res, next) => {
   )
   if (verified === false) {
     res.status(401).json({
-      error: 'You didn\'t sign signatures'
+      error: 'Signature verification failed!'
     })
   }
   req.authrite = {
@@ -72,7 +76,7 @@ const middleware = (config = {}) => (req, res, next) => {
   res.json = (json) => {
     const responseNonce = createNonce(config.serverPrivateKey)
     const derivedPrivateKey = getPaymentPrivateKey({
-      recipientPrivateKey: config.senderPrivateKey,
+      recipientPrivateKey: config.serverPrivateKey,
       senderPublicKey: req.headers['X-Authrite-Identity-Key'],
       invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + responseNonce,
       returnType: 'hex'
@@ -81,17 +85,16 @@ const middleware = (config = {}) => (req, res, next) => {
       bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(json))),
       bsv.PrivateKey.fromHex(derivedPrivateKey)
     )
-    res.set({
+    res.headers = {
       'X-Authrite': AUTHRITE_VERSION,
       'X-Authrite-Identity-Key': bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
       'X-Authrite-Nonce': responseNonce,
       'X-Authrite-YourNonce': req.headers['X-Authrite-Nonce'],
       'X-Authrite-Certificates': '[]',
       'X-Authrite-Signature': responseSignature.toString()
-    })
+    }
     return res.unsignedJson(json)
   }
-
   next()
 }
 module.exports = { middleware }
