@@ -1,10 +1,12 @@
 const bsv = require('bsv')
-const crypto = require('crypto')
 const { getPaymentAddress, getPaymentPrivateKey } = require('sendover')
 const createNonce = require('./utils/createNonce')
 const verifyNonce = require('./utils/verifyNonce')
 const AUTHRITE_VERSION = '0.1'
-const middleware = config => (req, res, next) => {
+const middleware = (config = {}) => (req, res, next) => {
+  if (!config.initalRequestPath) {
+    config.initalRequestPath = '/authrite/initialRequest'
+  }
   if (req.path === config.initialRequestPath) {
     if (AUTHRITE_VERSION !== req.body.authrite) {
       return res.status(400).json({
@@ -44,11 +46,11 @@ const middleware = config => (req, res, next) => {
   const signingPublicKey = getPaymentAddress({
     senderPrivateKey: config.serverPrivateKey,
     recipientPublicKey: req.headers['X-Authrite-Indentity-Key'],
-    invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + response.headers['X-Authrite-YourNonce'],
+    invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + req.headers['X-Authrite-YourNonce'],
     returnType: 'publicKey'
   })
   // 2. Construct the message for verification
-  const messageToVerify = req.body ? JSON.stringify(req.body):req.url
+  const messageToVerify = req.body ? JSON.stringify(req.body) : req.url
   // 3. Verify the signature
   const signature = bsv.crypto.Signature.fromString(
     req.headers['X-Authrite-Signature']
@@ -66,15 +68,30 @@ const middleware = config => (req, res, next) => {
   req.authrite = {
     identityKey: req.headers['X-Authrite-Identity-Key']
   }
+  res.unsignedJson = res.json
+  res.json = (json) => {
+    const responseNonce = createNonce(config.serverPrivateKey)
+    const derivedPrivateKey = getPaymentPrivateKey({
+      recipientPrivateKey: config.senderPrivateKey,
+      senderPublicKey: req.headers['X-Authrite-Identity-Key'],
+      invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + responseNonce,
+      returnType: 'hex'
+    })
+    const responseSignature = bsv.crypto.ECDSA.sign(
+      bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(json))),
+      bsv.PrivateKey.fromHex(derivedPrivateKey)
+    )
+    res.set({
+      'X-Authrite': AUTHRITE_VERSION,
+      'X-Authrite-Identity-Key': bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
+      'X-Authrite-Nonce': responseNonce,
+      'X-Authrite-YourNonce': req.headers['X-Authrite-Nonce'],
+      'X-Authrite-Certificates': '[]',
+      'X-Authrite-Signature': responseSignature.toString()
+    })
+    return res.unsignedJson(json)
+  }
+
   next()
-  const derivedPrivateKey = sendover.getPaymentPrivateKey({
-    recipientPrivateKey: TEST_SERVER_PRIVATE_KEY,
-    senderPublicKey: fetchConfig.headers['X-Authrite-Identity-Key'],
-    invoiceNumber: 'authrite message signature-' + fetchConfig.headers['X-Authrite-Nonce'] + ' ' + serverNonce,
-    returnType: 'hex'
-  })
-  const responseSignature = bsv.crypto.ECDSA.sign(
-    bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(responseMessage))),
-    bsv.PrivateKey.fromHex(derivedPrivateKey))
 }
 module.exports = { middleware }
