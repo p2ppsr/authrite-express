@@ -16,7 +16,8 @@ const mockRes = {
   unsignedJson: jest.fn(() => mockRes)
 }
 let mockReq
-// const mockNext = () => {}
+const mockNext = () => {}
+
 describe('authrite', () => {
   beforeEach(() => {
     mockReq = {
@@ -108,7 +109,7 @@ describe('authrite', () => {
       initalRequestPath: '/apiRoute'
     })
 
-    authriteMiddleware(mockReq, mockRes)
+    authriteMiddleware(mockReq, mockRes, mockNext)
     expect(mockRes.status).toHaveBeenLastCalledWith(401)
     expect(mockRes.unsignedJson).toHaveBeenCalledWith({
       error: 'Signature verification failed!'
@@ -146,7 +147,7 @@ describe('authrite', () => {
       initalRequestPath: '/apiRoute'
     })
 
-    authriteMiddleware(mockReq, mockRes)
+    authriteMiddleware(mockReq, mockRes, mockNext)
     console.log(mockRes.unsignedJson)
     // expect(mockRes.unsignedJson).toHaveBeenCalledWith({
     //   somethingElse: 'data'
