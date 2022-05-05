@@ -31,8 +31,8 @@ const middleware = (config = {}) => (req, res, next) => {
       messageType: 'initialResponse',
       identityKey: bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
       nonce: serverNonce,
-      certificates: '[]',
-      requestedCertificates: '[]',
+      certificates: [],
+      requestedCertificates: [],
       signature: signature.toString()
     })
   }
@@ -41,7 +41,7 @@ const middleware = (config = {}) => (req, res, next) => {
       error: 'Authrite version incompatible'
     })
   }
-  if (verifyNonce(req.headers['X-Authrite-YourNonce'], config.serverPrivateKey) === false) {
+  if (!verifyNonce(req.headers['X-Authrite-YourNonce'], config.serverPrivateKey)) {
     return res.status(401).json({
       error: 'show sum\' R.E.S.P.E.C.T.'
     })
@@ -64,36 +64,37 @@ const middleware = (config = {}) => (req, res, next) => {
     signature,
     bsv.PublicKey.fromString(signingPublicKey)
   )
-  if (verified === false) {
-    res.status(401).json({
+  if (!verified) {
+    return res.status(401).json({
       error: 'Signature verification failed!'
     })
   }
   req.authrite = {
     identityKey: req.headers['X-Authrite-Identity-Key']
   }
-  res.unsignedJson = res.json
+  const unsignedJson = res.json
   res.json = (json) => {
     const responseNonce = createNonce(config.serverPrivateKey)
     const derivedPrivateKey = getPaymentPrivateKey({
       recipientPrivateKey: config.serverPrivateKey,
       senderPublicKey: req.headers['X-Authrite-Identity-Key'],
       invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + responseNonce,
-      returnType: 'hex'
+      returnType: 'bsv'
     })
     const responseSignature = bsv.crypto.ECDSA.sign(
       bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(json))),
-      bsv.PrivateKey.fromHex(derivedPrivateKey)
+      bsv.PrivateKey.fromBuffer(derivedPrivateKey.toBuffer())
     )
-    res.headers = {
+    res.set({
       'X-Authrite': AUTHRITE_VERSION,
       'X-Authrite-Identity-Key': bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
       'X-Authrite-Nonce': responseNonce,
       'X-Authrite-YourNonce': req.headers['X-Authrite-Nonce'],
       'X-Authrite-Certificates': '[]',
       'X-Authrite-Signature': responseSignature.toString()
-    }
-    return res.unsignedJson(json)
+    })
+    res.json = unsignedJson
+    return res.json(json)
   }
   next()
 }
