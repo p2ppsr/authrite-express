@@ -136,7 +136,7 @@ describe('authrite', () => {
     const dataToSign = JSON.stringify(mockReq.body)
     const badSig = bsv.crypto.ECDSA.sign(
       bsv.crypto.Hash.sha256(Buffer.from(dataToSign)),
-      bsv.PrivateKey.fromHex(derivedClientPrivateKey)
+      bsv.PrivateKey.fromHex(badKey)
     )
     mockReq.headers['X-Authrite-Signature'] = badSig.toString()
     const authriteMiddleware = middleware({
