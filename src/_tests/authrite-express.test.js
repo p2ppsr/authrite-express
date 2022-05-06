@@ -149,17 +149,29 @@ describe('authrite', () => {
     })
   })
   it('returns a valid response to a valid request from the client', async () => {
+    
     mockReq = VALID.normalRequest
     const authriteMiddleware = middleware({
       serverPrivateKey: TEST_SERVER_PRIVATE_KEY
     })
 
     authriteMiddleware(mockReq, mockRes, mockNext)
-    mockRes.json({ test: 'response' })
-    expect(mockRes.json).toHaveBeenCalledWith({
-      test: 'response'
-    })
-    // TODO: Check that a response signature was generated and sent back within res.headers, and that the req.authrite field was populated. Verify the response signature from the server.
+
+    const data = {test: 'response'}
+    mockRes.json(data)
+    expect(mockRes.json).toHaveBeenCalledWith(data)
+
+    //Verify the response signature from the server.
+
+    expect(mockRes.headers['X-Authrite-Signature']).toBeTruthy()
+    expect(mockReq.authrite.identityKey).toBeTruthy()
+
+    const verified = bsv.crypto.ECDSA.verify(
+        bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
+        signature,
+        bsv.PublicKey.fromString(signingPublicKey)
+      )
+
   })
   // it('throws an error if the server nonce cannot be verified', async () => {
   //   const serverNonce = createNonce(TEST_SERVER_PRIVATE_KEY)
