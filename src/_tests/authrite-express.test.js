@@ -21,6 +21,7 @@ const derivedClientPrivateKey = sendover.getPaymentPrivateKey({
   invoiceNumber: 'authrite message signature-' + TEST_CLIENT_NONCE + ' ' + TEST_SERVER_NONCE,
   returnType: 'hex'
 })
+
 const dataToSign = JSON.stringify(TEST_REQ_DATA)
 const requestSignature = bsv.crypto.ECDSA.sign(
   bsv.crypto.Hash.sha256(Buffer.from(dataToSign)),
@@ -166,8 +167,15 @@ describe('authrite', () => {
     expect(mockRes.headers['X-Authrite-Signature']).toBeTruthy()
     expect(mockReq.authrite.identityKey).toBeTruthy()
 
+    const signingPublicKey = getPaymentAddress({
+        senderPrivateKey: TEST_SERVER_PRIVATE_KEY,
+        recipientPublicKey: bsv.PrivateKey.fromHex(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
+        invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + req.headers['X-Authrite-YourNonce'],
+        returnType: 'publicKey'
+      })
+
     const verified = bsv.crypto.ECDSA.verify(
-        bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
+        bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(data))),
         signature,
         bsv.PublicKey.fromString(signingPublicKey)
       )
