@@ -49,7 +49,7 @@ describe('authrite', () => {
           identityKey: bsv.PrivateKey.fromString(TEST_CLIENT_PRIVATE_KEY)
             .publicKey.toString(),
           nonce: TEST_CLIENT_NONCE,
-          requestedCertificates: [],
+          requestedCertificates: []
         },
         path: '/authrite/initialRequest'
       },
@@ -96,7 +96,25 @@ describe('authrite', () => {
       signature: expect.any(String)
     })
 
-    // TODO: The client derives the server's signing key and verifies the signature.
+    // TODO: 
+    // The client derives the server's signing key
+    // const serverSigningKey = sendover.getP
+    console.log(mockRes.json)
+    debugger
+    const signingPublicKey = sendover.getPaymentAddress({
+      senderPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+      recipientPublicKey: mockRes.json.identityKey,
+      invoiceNumber: 'authrite message signature-' + TEST_CLIENT_NONCE + ' ' + mockRes.nonce,
+      returnType: 'publicKey'
+    })
+    // verifies the signature.
+    const message = TEST_CLIENT_NONCE + mockRes.nonce
+    const verified = bsv.crypto.ECDSA.verify(
+      bsv.crypto.Hash.sha256(Buffer.from(message)),
+      mockRes.siganture,
+      bsv.PublicKey.fromString(signingPublicKey)
+    )
+    expect(verified).toBeTrue()
   })
   it('throws an error if the authrite versions do not match in the initial request', async () => {
     // Mock an initial request with a different authrite version
@@ -150,7 +168,6 @@ describe('authrite', () => {
     })
   })
   it('returns a valid response to a valid request from the client', async () => {
-    
     mockReq = VALID.normalRequest
     const authriteMiddleware = middleware({
       serverPrivateKey: TEST_SERVER_PRIVATE_KEY
@@ -158,29 +175,32 @@ describe('authrite', () => {
 
     authriteMiddleware(mockReq, mockRes, mockNext)
 
-    const data = {test: 'response'}
+    const data = { test: 'response' }
     mockRes.json(data)
     expect(mockRes.json).toHaveBeenCalledWith(data)
 
-    //Verify the response signature from the server.
+    // Verify the response signature from the server.
 
     expect(mockRes.headers['X-Authrite-Signature']).toBeTruthy()
     expect(mockReq.authrite.identityKey).toBeTruthy()
-
-    const signingPublicKey = getPaymentAddress({
-        senderPrivateKey: TEST_SERVER_PRIVATE_KEY,
-        recipientPublicKey: bsv.PrivateKey.fromHex(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
-        invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + req.headers['X-Authrite-YourNonce'],
-        returnType: 'publicKey'
-      })
-
+    const signingPublicKey = sendover.getPaymentAddress({
+      senderPrivateKey: TEST_SERVER_PRIVATE_KEY,
+      recipientPublicKey: bsv.PrivateKey.fromHex(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
+      invoiceNumber: 'authrite message signature-' + mockRes.headers['X-Authrite-Nonce'] + ' ' + mockRes.headers['X-Authrite-YourNonce'],
+      returnType: 'publicKey'
+    })
+    const signature = bsv.crypto.ECDSA.sign(
+      bsv.crypto.Hash.sha256(Buffer.from(data)),
+      bsv.PrivateKey.fromHex(derivedPrivateKey)
+    )
     const verified = bsv.crypto.ECDSA.verify(
-        bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(data))),
-        signature,
-        bsv.PublicKey.fromString(signingPublicKey)
-      )
-
+    bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
+    signature,
+    bsv.PublicKey.fromString(signingPublicKey)
+  )
+    expect(verified).toBeTrue()
   })
+
   // it('throws an error if the server nonce cannot be verified', async () => {
   //   const serverNonce = createNonce(TEST_SERVER_PRIVATE_KEY)
   //   const clientNonce = createNonce(TEST_CLIENT_PRIVATE_KEY)

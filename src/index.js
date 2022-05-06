@@ -46,7 +46,7 @@ const middleware = (config = {}) => (req, res, next) => {
       error: 'show sum\' R.E.S.P.E.C.T.'
     })
   }
-  // When the server response comes back, validate the signature according to the specification
+  // Validate the client's request signature according to the specification
   const signingPublicKey = getPaymentAddress({
     senderPrivateKey: config.serverPrivateKey,
     recipientPublicKey: req.headers['X-Authrite-Identity-Key'],
