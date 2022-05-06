@@ -27,8 +27,7 @@ const middleware = (config = {}) => (req, res, next) => {
       bsv.PrivateKey.fromHex(derivedPrivateKey)
     )
 
-    // Why are we returning a response here? We should keep going! - TY?
-    /*return*/ res.status(200).json({
+    return res.status(200).json({
       authrite: '0.1',
       messageType: 'initialResponse',
       identityKey: bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
@@ -38,12 +37,12 @@ const middleware = (config = {}) => (req, res, next) => {
       signature: signature.toString()
     })
   }
-  if (AUTHRITE_VERSION !== req.headers['X-Authrite']) {
+  if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
     return res.status(400).json({
       error: 'Authrite version incompatible'
     })
   }
-  if (!verifyNonce(req.headers['X-Authrite-YourNonce'], config.serverPrivateKey)) {
+  if (!verifyNonce(req.headers['x-authrite-yournonce'], config.serverPrivateKey)) {
     return res.status(401).json({
       error: 'show sum\' R.E.S.P.E.C.T.'
     })
@@ -51,15 +50,15 @@ const middleware = (config = {}) => (req, res, next) => {
   // Validate the client's request signature according to the specification
   const signingPublicKey = getPaymentAddress({
     senderPrivateKey: config.serverPrivateKey,
-    recipientPublicKey: req.headers['X-Authrite-Identity-Key'],
-    invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + req.headers['X-Authrite-YourNonce'],
+    recipientPublicKey: req.headers['x-authrite-identity-key'],
+    invoiceNumber: 'authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + req.headers['x-authrite-yournonce'],
     returnType: 'publicKey'
   })
   // 2. Construct the message for verification
-  const messageToVerify = req.body ? JSON.stringify(req.body) : req.url
+  const messageToVerify = Object.keys(req.body).length === 0 ? req.url : JSON.stringify(req.body)
   // 3. Verify the signature
   const signature = bsv.crypto.Signature.fromString(
-    req.headers['X-Authrite-Signature']
+    req.headers['x-authrite-signature']
   )
   const verified = bsv.crypto.ECDSA.verify(
     bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
@@ -72,15 +71,16 @@ const middleware = (config = {}) => (req, res, next) => {
     })
   }
   req.authrite = {
-    identityKey: req.headers['X-Authrite-Identity-Key']
+    identityKey: req.headers['x-authrite-identity-key']
   }
   const unsignedJson = res.json
+  // TODO: Figure out how this get's called?
   res.json = (json) => {
     const responseNonce = createNonce(config.serverPrivateKey)
     const derivedPrivateKey = getPaymentPrivateKey({
       recipientPrivateKey: config.serverPrivateKey,
-      senderPublicKey: req.headers['X-Authrite-Identity-Key'],
-      invoiceNumber: 'authrite message signature-' + req.headers['X-Authrite-Nonce'] + ' ' + responseNonce,
+      senderPublicKey: req.headers['x-authrite-identity-key'],
+      invoiceNumber: 'authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + responseNonce,
       returnType: 'bsv'
     })
     const responseSignature = bsv.crypto.ECDSA.sign(
@@ -91,7 +91,7 @@ const middleware = (config = {}) => (req, res, next) => {
       'X-Authrite': AUTHRITE_VERSION,
       'X-Authrite-Identity-Key': bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
       'X-Authrite-Nonce': responseNonce,
-      'X-Authrite-YourNonce': req.headers['X-Authrite-Nonce'],
+      'X-Authrite-YourNonce': req.headers['x-authrite-nonce'],
       'X-Authrite-Certificates': '[]',
       'X-Authrite-Signature': responseSignature.toString()
     })
