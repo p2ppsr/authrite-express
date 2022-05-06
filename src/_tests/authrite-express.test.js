@@ -80,11 +80,17 @@ describe('authrite', () => {
     expect(verifyNonce(falseNonce, TEST_SERVER_PRIVATE_KEY)).toEqual(false)
   })
   it('responds properly to an initial request', async () => {
-    mockReq = VALID.initialRequest
+    mockReq = VALID.initialRequest // normal request
     const authriteMiddleware = middleware({
       serverPrivateKey: TEST_SERVER_PRIVATE_KEY
     })
     authriteMiddleware(mockReq, mockRes, mockNext)
+
+    // added by Joe
+    const data = { test: 'response' }
+    mockRes.json(data)
+    // =============
+
     expect(mockRes.status).toHaveBeenLastCalledWith(200)
     expect(mockRes.json).toHaveBeenCalledWith({
       authrite: '0.1',
@@ -96,21 +102,24 @@ describe('authrite', () => {
       signature: expect.any(String)
     })
 
-    // TODO: 
-    // The client derives the server's signing key
-    // const serverSigningKey = sendover.getP
-    console.log(mockRes.json)
+    // TODO: The client derives the server's signing key
+    // Not sure how to use the data passed back from server response?
+
     debugger
+    console.log(mockRes.headers);
+    console.log(mockRes.json);
+    console.log(mockRes.body);
+
     const signingPublicKey = sendover.getPaymentAddress({
-      senderPrivateKey: TEST_CLIENT_PRIVATE_KEY,
-      recipientPublicKey: mockRes.json.identityKey,
+      senderPrivateKey: TEST_SERVER_PRIVATE_KEY,
+      recipientPublicKey: bsv.PrivateKey.fromHex(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
       invoiceNumber: 'authrite message signature-' + TEST_CLIENT_NONCE + ' ' + mockRes.nonce,
       returnType: 'publicKey'
     })
     // verifies the signature.
-    const message = TEST_CLIENT_NONCE + mockRes.nonce
+    const messageToVerify = JSON.stringify(mockRes.body)
     const verified = bsv.crypto.ECDSA.verify(
-      bsv.crypto.Hash.sha256(Buffer.from(message)),
+      bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
       mockRes.siganture,
       bsv.PublicKey.fromString(signingPublicKey)
     )

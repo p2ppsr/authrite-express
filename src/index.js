@@ -26,7 +26,9 @@ const middleware = (config = {}) => (req, res, next) => {
       bsv.crypto.Hash.sha256(Buffer.from(message)),
       bsv.PrivateKey.fromHex(derivedPrivateKey)
     )
-    return res.status(200).json({
+
+    // Why are we returning a response here? We should keep going! - TY?
+    /*return*/ res.status(200).json({
       authrite: '0.1',
       messageType: 'initialResponse',
       identityKey: bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
