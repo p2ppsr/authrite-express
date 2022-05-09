@@ -5,28 +5,25 @@ const app = require('./server')
 const { Authrite } = require('../../../authrite-js/src/authrite')
 
 const TEST_CLIENT_PRIVATE_KEY = '0d7889a0e56684ba795e9b1e28eb906df43454f8172ff3f6807b8cf9464994df'
-
+let server
 describe('authrite', () => {
+  beforeAll(() => {
+    // Wait to start the server before running tests.
+    return new Promise(resolve => {
+      server = app.listen(5000, () => {
+        resolve()
+      })
+    })
+  })
+  afterAll(() => {
+    server.close()
+  })
   beforeEach(() => {
   })
   afterEach(() => {
     jest.clearAllMocks()
   })
-  it('Starts an express server', async () => {
-    app.listen(5000, () => {
-      console.log('server started')
-    })
-  })
-  // Example test using require('supertest')
-  //   it('Creates an initial request from the client to the server', async () => {
-  //     const res = await request(app).post('/authrite/initialRequest')
-  //       .send({
-  //         authrite: '0.1',
-  //         identityKey: bsv.PrivateKey.fromString(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
-  //         requestedCertificates: []
-  //       }).expect(200)
-  //     console.log(res.text)
-  //   })
+
   it('Creates an initial request from the client to the server', async () => {
     const authrite = new Authrite({
       serverUrl: 'http://localhost:5000',
@@ -35,5 +32,23 @@ describe('authrite', () => {
       initialRequestMethod: 'POST'
     })
     const response = await authrite.request('/apiRoute')
-  })
+    console.log(Buffer.from(response.body).toString('utf8'))
+  }, 100000)
+
+  it('Creates an initial request with payload from the client to the server', async () => {
+    const authrite = new Authrite({
+      serverUrl: 'http://localhost:5000',
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+      initialRequestPath: '/authrite/initialRequest',
+      initialRequestMethod: 'POST'
+    })
+    const response = await authrite.request('/getSomeData', {
+      payload: {
+        user: 'bob',
+        message: 'message from client'
+      },
+      method: 'POST'
+    })
+    console.log(JSON.parse(Buffer.from(response.body).toString('utf8')).message)
+  }, 100000)
 })

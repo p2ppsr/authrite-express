@@ -55,7 +55,7 @@ const middleware = (config = {}) => (req, res, next) => {
     returnType: 'publicKey'
   })
   // 2. Construct the message for verification
-  const messageToVerify = Object.keys(req.body).length === 0 ? req.url : JSON.stringify(req.body)
+  const messageToVerify = Object.keys(req.body).length !== 0 ? JSON.stringify(req.body) : config.baseUrl + req.originalUrl
   // 3. Verify the signature
   const signature = bsv.crypto.Signature.fromString(
     req.headers['x-authrite-signature']
@@ -73,8 +73,8 @@ const middleware = (config = {}) => (req, res, next) => {
   req.authrite = {
     identityKey: req.headers['x-authrite-identity-key']
   }
+
   const unsignedJson = res.json
-  // TODO: Figure out how this get's called?
   res.json = (json) => {
     const responseNonce = createNonce(config.serverPrivateKey)
     const derivedPrivateKey = getPaymentPrivateKey({
