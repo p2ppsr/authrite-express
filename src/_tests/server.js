@@ -18,7 +18,7 @@ app.get('/apiRoute', (req, res) => {
 })
 app.post('/getSomeData', (req, res) => {
   res.json({
-    message: `Hello, ${req.body.user} this is the server.`
+    message: `Hello, ${req.body.user} this is the server. I received your message: '${req.body.message}'`
   })
 })
 module.exports = app

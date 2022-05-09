@@ -55,11 +55,12 @@ const middleware = (config = {}) => (req, res, next) => {
     returnType: 'publicKey'
   })
   // 2. Construct the message for verification
-  const messageToVerify = Object.keys(req.body).length !== 0 ? JSON.stringify(req.body) : config.baseUrl + req.originalUrl
+  const messageToVerify = req.body !== {} ? JSON.stringify(req.body) : config.baseUrl + req.originalUrl
   // 3. Verify the signature
   const signature = bsv.crypto.Signature.fromString(
     req.headers['x-authrite-signature']
   )
+  console.log('msg to verify', messageToVerify)
   const verified = bsv.crypto.ECDSA.verify(
     bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
     signature,
