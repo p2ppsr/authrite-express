@@ -35,40 +35,63 @@ describe('authrite', () => {
       initialRequestMethod: 'POST'
     })
     const response = await authrite.request('/apiRoute')
-    console.log(Buffer.from(response.body).toString('utf8'))
-  }, 100000)
-  it('Creates an initial request from the client to the server', async () => {
-    const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
-      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
-      initialRequestPath: '/authrite/initialRequest',
-      initialRequestMethod: 'POST'
-    })
-    const response = await authrite.request('/getSomeData', {
-      payload: {
-        user: 'Bob',
-        message: 'message from client'
-      },
-      method: 'POST'
-    })
-    console.log(JSON.parse(Buffer.from(response.body).toString('utf8')).message)
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData).toEqual({ user: 'data' })
   }, 100000)
 
-  // TODO: Refactor to deal with no method specified, and
-  // TODO: if it is a get request which should have no body.
-  it('Creates an initial request with no method specified', async () => {
+  it('Creates a request with a payload from the client to the server', async () => {
     const authrite = new Authrite({
       baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
       initialRequestPath: '/authrite/initialRequest',
       initialRequestMethod: 'POST'
     })
-    const response = await authrite.request('/getSomeData', {
-      payload: {
-        user: 'Bob',
-        message: 'message from client'
-      }
+    const payload = {
+      user: 'Bob',
+      message: 'message from client'
+    }
+    const response = await authrite.request('/sendSomeData', {
+      payload,
+      method: 'POST'
     })
-    console.log(JSON.parse(Buffer.from(response.body).toString('utf8')).message)
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData.clientData).toEqual(payload)
+  }, 100000)
+
+  it('Creates a request with a payload to the server with no method specified', async () => {
+    const authrite = new Authrite({
+      baseUrl: TEST_SERVER_BASEURL,
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+      initialRequestPath: '/authrite/initialRequest',
+      initialRequestMethod: 'POST'
+    })
+    const payload = {
+      user: 'Bob',
+      message: 'message from client'
+    }
+    const response = await authrite.request('/sendSomeData', {
+      payload
+    })
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData.clientData).toEqual(payload)
+  }, 100000)
+
+  it('Creates a request with a different payload', async () => {
+    const authrite = new Authrite({
+      baseUrl: TEST_SERVER_BASEURL,
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+      initialRequestPath: '/authrite/initialRequest',
+      initialRequestMethod: 'POST'
+    })
+    const payload = {
+      songs: JSON.stringify(['song1', 'song2', 'song3']),
+      artist: 'Brayden Langley'
+    }
+    const response = await authrite.request('/sendSomeData', {
+      payload,
+      method: 'POST'
+    })
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData.clientData).toEqual(payload)
   }, 100000)
 })

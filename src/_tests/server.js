@@ -16,9 +16,10 @@ app.use(authrite.middleware({
 app.get('/apiRoute', (req, res) => {
   res.json({ user: 'data' })
 })
-app.post('/getSomeData', (req, res) => {
+app.post('/sendSomeData', (req, res) => {
   res.json({
-    message: `Hello, ${req.body.user} this is the server. I received your message: '${req.body.message}'`
+    message: 'Hello, this is the server. Here is the data you sent:',
+    clientData: req.body
   })
 })
 module.exports = app

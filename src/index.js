@@ -4,7 +4,7 @@ const createNonce = require('./utils/createNonce')
 const verifyNonce = require('./utils/verifyNonce')
 const AUTHRITE_VERSION = '0.1'
 
-const middleware = (config = {}) => (req, res, next) => {
+const middleware = (config = { method: 'GET' }) => (req, res, next) => {
   if (!config.initalRequestPath) {
     config.initalRequestPath = '/authrite/initialRequest'
   }
@@ -54,13 +54,14 @@ const middleware = (config = {}) => (req, res, next) => {
     invoiceNumber: 'authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + req.headers['x-authrite-yournonce'],
     returnType: 'publicKey'
   })
+
   // 2. Construct the message for verification
-  const messageToVerify = req.body !== {} ? JSON.stringify(req.body) : config.baseUrl + req.originalUrl
+  // Note: Maybe create a validation method to handle all cases.
+  const messageToVerify = Object.keys(req.body).length !== 0 ? JSON.stringify(req.body) : config.baseUrl + req.originalUrl
   // 3. Verify the signature
   const signature = bsv.crypto.Signature.fromString(
     req.headers['x-authrite-signature']
   )
-  console.log('msg to verify', messageToVerify)
   const verified = bsv.crypto.ECDSA.verify(
     bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
     signature,
