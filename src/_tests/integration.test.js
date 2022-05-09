@@ -37,6 +37,22 @@ describe('authrite', () => {
     const response = await authrite.request('/apiRoute')
     console.log(Buffer.from(response.body).toString('utf8'))
   }, 100000)
+  it('Creates an initial request from the client to the server', async () => {
+    const authrite = new Authrite({
+      baseUrl: TEST_SERVER_BASEURL,
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+      initialRequestPath: '/authrite/initialRequest',
+      initialRequestMethod: 'POST'
+    })
+    const response = await authrite.request('/getSomeData', {
+      payload: {
+        user: 'Bob',
+        message: 'message from client'
+      },
+      method: 'POST'
+    })
+    console.log(JSON.parse(Buffer.from(response.body).toString('utf8')).message)
+  }, 100000)
 
   // TODO: Refactor to deal with no method specified, and
   // TODO: if it is a get request which should have no body.
