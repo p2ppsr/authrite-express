@@ -22,6 +22,7 @@ const TEST_REQ_DATA = {
 }
 
 // Create a valid client signature for testing
+// const requestNonce = crypto.randomBytes(32).toString('base64')
 const derivedClientPrivateKey = sendover.getPaymentPrivateKey({
   recipientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
   senderPublicKey: bsv.PrivateKey.fromHex(TEST_SERVER_PRIVATE_KEY).publicKey.toString(),
@@ -29,7 +30,7 @@ const derivedClientPrivateKey = sendover.getPaymentPrivateKey({
   returnType: 'hex'
 })
 
-const dataToSign = JSON.stringify(TEST_REQ_DATA)
+const dataToSign = JSON.stringify(TEST_REQ_DATA.payload)
 const requestSignature = bsv.crypto.ECDSA.sign(
   bsv.crypto.Hash.sha256(Buffer.from(dataToSign)),
   bsv.PrivateKey.fromHex(derivedClientPrivateKey)
@@ -53,17 +54,18 @@ describe('authrite', () => {
       initialRequest: {
         body: {
           authrite: '0.1',
-          identityKey: bsv.PrivateKey.fromString(TEST_CLIENT_PRIVATE_KEY)
-            .publicKey.toString(),
+          identityKey: bsv.PrivateKey.fromHex(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
           nonce: TEST_CLIENT_NONCE,
           requestedCertificates: []
         },
         path: '/authrite/initialRequest'
       },
       normalRequest: {
-        body: TEST_REQ_DATA,
+        body: TEST_REQ_DATA.payload,
+        method: TEST_REQ_DATA.method,
         path: '/apiRoute',
         headers: {
+          'Content-Type': 'application/json',
           'x-authrite': '0.1',
           'x-authrite-identity-key': bsv.PrivateKey.fromHex(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
           'X-Authrite-Nonce': TEST_CLIENT_NONCE,
@@ -159,19 +161,20 @@ describe('authrite', () => {
       error: 'Signature verification failed!'
     })
   })
-  // // Note: Request and response validated in integration test.
-  // it('returns a valid response to a valid request from the client', async () => {
-  //   mockReq = VALID.normalRequest
-  //   const authriteMiddleware = middleware({
-  //     serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
-  //     baseUrl: TEST_SERVER_BASEURL
-  //   })
+  // Note: Request and response validated in integration test.
+  it('returns a valid response to a valid request from the client', async () => {
+    mockReq = VALID.normalRequest
+    const authriteMiddleware = middleware({
+      serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
+      baseUrl: TEST_SERVER_BASEURL
+    })
+    // debugger
+    // console.log(dataToSign)
+    authriteMiddleware(mockReq, mockRes, mockNext)
 
-  //   authriteMiddleware(mockReq, mockRes, mockNext)
-
-  //   // TODO: Fix signature verification error...
-  //   // expect(mockRes.json).toHaveBeenCalledWith({
-  //   //   error: 'Signature verification failed!'
-  //   // })
-  // })
+    // TODO: Fix signature verification error...
+    expect(mockRes.json).toHaveBeenCalledWith({
+      error: 'Signature should be valid...'
+    })
+  })
 })

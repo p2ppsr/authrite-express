@@ -56,7 +56,6 @@ const middleware = (config = { method: 'GET' }) => (req, res, next) => {
   })
 
   // 2. Construct the message for verification
-  // Note: Maybe create a validation method to handle all cases.
   const messageToVerify = Object.keys(req.body).length !== 0 ? JSON.stringify(req.body) : config.baseUrl + req.originalUrl
   // 3. Verify the signature
   const signature = bsv.crypto.Signature.fromString(
