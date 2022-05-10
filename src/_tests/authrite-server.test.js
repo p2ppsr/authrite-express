@@ -14,7 +14,7 @@ const TEST_SERVER_BASEURL = 'http://localhost:5000'
 const TEST_SERVER_NONCE = createNonce(TEST_SERVER_PRIVATE_KEY)
 const TEST_CLIENT_NONCE = crypto.randomBytes(32).toString('base64')
 const TEST_REQ_DATA = {
-  payload: {
+  body: {
     user: 'Bob',
     message: 'message from client'
   },
@@ -30,7 +30,7 @@ const derivedClientPrivateKey = sendover.getPaymentPrivateKey({
   returnType: 'hex'
 })
 
-const dataToSign = JSON.stringify(TEST_REQ_DATA.payload)
+const dataToSign = JSON.stringify(TEST_REQ_DATA.body)
 const requestSignature = bsv.crypto.ECDSA.sign(
   bsv.crypto.Hash.sha256(Buffer.from(dataToSign)),
   bsv.PrivateKey.fromHex(derivedClientPrivateKey)
@@ -61,7 +61,7 @@ describe('authrite', () => {
         path: '/authrite/initialRequest'
       },
       normalRequest: {
-        body: TEST_REQ_DATA.payload,
+        body: TEST_REQ_DATA.body,
         method: TEST_REQ_DATA.method,
         path: '/apiRoute',
         headers: {

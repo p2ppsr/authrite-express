@@ -37,44 +37,50 @@ const middleware = (config = { method: 'GET' }) => (req, res, next) => {
       signature: signature.toString()
     })
   }
-  if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
+  try {
+    if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
+      return res.status(400).json({
+        error: 'Authrite version incompatible'
+      })
+    }
+    if (!verifyNonce(req.headers['x-authrite-yournonce'], config.serverPrivateKey)) {
+      return res.status(401).json({
+        error: 'show sum\' R.E.S.P.E.C.T.'
+      })
+    }
+    // Validate the client's request signature according to the specification
+    const signingPublicKey = getPaymentAddress({
+      senderPrivateKey: config.serverPrivateKey,
+      recipientPublicKey: req.headers['x-authrite-identity-key'],
+      invoiceNumber: `authrite message signature-${req.headers['x-authrite-nonce']} ${req.headers['x-authrite-yournonce']}`,
+      returnType: 'publicKey'
+    })
+    // 2. Construct the message for verification
+    const messageToVerify = Object.keys(req.body).length !== 0
+      ? JSON.stringify(req.body)
+      : config.baseUrl + req.originalUrl
+    // 3. Verify the signature
+    const signature = bsv.crypto.Signature.fromString(
+      req.headers['x-authrite-signature']
+    )
+    const verified = bsv.crypto.ECDSA.verify(
+      bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
+      signature,
+      bsv.PublicKey.fromString(signingPublicKey)
+    )
+    if (!verified) {
+      return res.status(401).json({
+        error: 'Signature verification failed!'
+      })
+    }
+    req.authrite = {
+      identityKey: req.headers['x-authrite-identity-key']
+    }
+  } catch (error) {
     return res.status(400).json({
-      error: 'Authrite version incompatible'
+      error: 'Server could not find Authrite headers in request from client!'
     })
   }
-  if (!verifyNonce(req.headers['x-authrite-yournonce'], config.serverPrivateKey)) {
-    return res.status(401).json({
-      error: 'show sum\' R.E.S.P.E.C.T.'
-    })
-  }
-  // Validate the client's request signature according to the specification
-  const signingPublicKey = getPaymentAddress({
-    senderPrivateKey: config.serverPrivateKey,
-    recipientPublicKey: req.headers['x-authrite-identity-key'],
-    invoiceNumber: 'authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + req.headers['x-authrite-yournonce'],
-    returnType: 'publicKey'
-  })
-
-  // 2. Construct the message for verification
-  const messageToVerify = Object.keys(req.body).length !== 0 ? JSON.stringify(req.body) : config.baseUrl + req.originalUrl
-  // 3. Verify the signature
-  const signature = bsv.crypto.Signature.fromString(
-    req.headers['x-authrite-signature']
-  )
-  const verified = bsv.crypto.ECDSA.verify(
-    bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
-    signature,
-    bsv.PublicKey.fromString(signingPublicKey)
-  )
-  if (!verified) {
-    return res.status(401).json({
-      error: 'Signature verification failed!'
-    })
-  }
-  req.authrite = {
-    identityKey: req.headers['x-authrite-identity-key']
-  }
-
   const unsignedJson = res.json
   res.json = (json) => {
     const responseNonce = createNonce(config.serverPrivateKey)
