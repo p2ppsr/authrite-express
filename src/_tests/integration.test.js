@@ -95,6 +95,25 @@ describe('authrite', () => {
       message: 'message from client'
     }
     const response = await authrite.request('/sendSomeData', {
+      body: JSON.stringify(body),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData.clientData).toEqual(body)
+  }, 100000)
+
+  it('Creates a request with a payload to the server with no method or header specified', async () => {
+    const authrite = new Authrite({
+      baseUrl: TEST_SERVER_BASEURL,
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
+    })
+    const body = {
+      user: 'Bob',
+      message: 'message from client'
+    }
+    const response = await authrite.request('/sendSomeData', {
       body: JSON.stringify(body)
     })
     const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
@@ -107,9 +126,24 @@ describe('authrite', () => {
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
       initialRequestMethod: 'POST'
     })
+    // An example song object that can be used in a request body
+    class Song {
+      constructor (title, length, artist) {
+        this.title = title
+        this.length = length
+        this.artist = artist
+      }
+    }
     const body = {
-      songs: JSON.stringify(['song1', 'song2', 'song3']),
-      artist: 'Brayden Langley'
+      songs: [
+        new Song('song1', '3:30', 'Brayden Langley'),
+        new Song('song2', '3:30', 'Brayden Langley'),
+        new Song('song3', '3:30', 'Brayden Langley'),
+        new Song('song4', '3:30', 'Brayden Langley'),
+        new Song('song5', '3:30', 'Brayden Langley'),
+        new Song('song6', '3:30', 'Brayden Langley'),
+        new Song('song7', '3:30', 'Brayden Langley')
+      ]
     }
     const response = await authrite.request('/sendSomeData', {
       body: JSON.stringify(body),
