@@ -68,7 +68,7 @@ describe('authrite', () => {
           'Content-Type': 'application/json',
           'x-authrite': '0.1',
           'x-authrite-identity-key': bsv.PrivateKey.fromHex(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
-          'X-Authrite-Nonce': TEST_CLIENT_NONCE,
+          'x-authrite-nonce': TEST_CLIENT_NONCE,
           'x-authrite-yournonce': TEST_SERVER_NONCE,
           'x-authrite-certificates': [],
           'x-authrite-signature': requestSignature.toString()
@@ -162,19 +162,26 @@ describe('authrite', () => {
     })
   })
   // Note: Request and response validated in integration test.
-  it('returns a valid response to a valid request from the client', async () => {
+  it('returns a valid response to a valid request from the client', () => {
     mockReq = VALID.normalRequest
     const authriteMiddleware = middleware({
       serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
       baseUrl: TEST_SERVER_BASEURL
     })
-    // debugger
-    // console.log(dataToSign)
     authriteMiddleware(mockReq, mockRes, mockNext)
-
-    // TODO: Fix signature verification error...
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Signature should be valid...'
-    })
+    const SERVER_MSG = { server: 'response' }
+    mockRes.json(SERVER_MSG)
+    const messageToVerify = JSON.stringify(SERVER_MSG)
+    const invoiceNumber = `authrite message signature-${mockRes.headers['X-Authrite-YourNonce']} ${mockRes.headers['X-Authrite-Nonce']}`
+    expect(bsv.crypto.ECDSA.verify(
+      bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
+      bsv.crypto.Signature.fromString(mockRes.headers['X-Authrite-Signature']),
+      bsv.PublicKey.fromString(sendover.getPaymentAddress({
+        senderPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+        recipientPublicKey: bsv.PrivateKey.fromString(TEST_SERVER_PRIVATE_KEY).publicKey.toString(),
+        invoiceNumber,
+        returnType: 'publicKey'
+      }))
+    )).toEqual(true)
   })
 })
