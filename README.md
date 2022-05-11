@@ -11,7 +11,7 @@ During setup, the client asks for some basic information from the server and pro
 
 ## [Example Usage](#example-usuage)
 
-This example demonstrates creating a simple express server **authrite-js**
+This example demonstrates creating a simple express server that makes use of the **authrite-express** middleware.
 
 ```js
 const authrite = require('authrite-express')
