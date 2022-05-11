@@ -1,13 +1,13 @@
 {
   "name": "authrite-express",
   "version": "1.0.0",
-  "description": "Express middleware for providing mutual authentication with a client ",
+  "description": "Express middleware for providing mutual authentication with a client",
   "main": "index.js",
   "scripts": {
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "doc": "documentation readme index.js --section=API"
+    "doc": "documentation readme src/index.js -f md -s authrite-express"
   },
   "repository": {
     "type": "git",

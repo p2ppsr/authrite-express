@@ -25,7 +25,10 @@ describe('authrite', () => {
           }))
 
           // Example Routes
-          app.get('/apiRoute', (req, res) => {
+          app.post('/apiRoute', (req, res) => {
+            res.json({ user: 'data' })
+          })
+          app.get('/getData', (req, res) => {
             res.json({ user: 'data' })
           })
           app.post('/sendSomeData', (req, res) => {
@@ -60,6 +63,23 @@ describe('authrite', () => {
       initialRequestMethod: 'POST'
     })
     const response = await authrite.request('/apiRoute')
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData).toEqual({ user: 'data' })
+  }, 100000)
+
+  it('Creates a GET request from the client to the server', async () => {
+    const authrite = new Authrite({
+      baseUrl: TEST_SERVER_BASEURL,
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+      initialRequestPath: '/authrite/initialRequest',
+      initialRequestMethod: 'POST'
+    })
+    const response = await authrite.request('/getData', {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
     const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
     expect(responseData).toEqual({ user: 'data' })
   }, 100000)
