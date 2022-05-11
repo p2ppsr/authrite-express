@@ -120,7 +120,7 @@ describe('authrite', () => {
     expect(responseData.clientData).toEqual(body)
   }, 100000)
 
-  it('Creates a request with a different payload', async () => {
+  it('Creates a request with a payload that is not a string', async () => {
     const authrite = new Authrite({
       baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
@@ -146,47 +146,36 @@ describe('authrite', () => {
       ]
     }
     const response = await authrite.request('/sendSomeData', {
-      body: JSON.stringify(body),
+      body,
       method: 'POST'
     })
     const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
     expect(responseData.clientData).toEqual(body)
   }, 100000)
 
-  it('throws an error if the body does not match the fetch node specification for JSON content type', async () => {
+  it('Does not throw an error if the body of a POST request is empty', async () => {
     const authrite = new Authrite({
       baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
-    const body = {
-      user: 'Bob',
-      message: 'message from client'
-    }
-    await expect(authrite.request('/sendSomeData', {
-      body, // Needs to be a stringified version of the object
+    const response = await authrite.request('/sendSomeData', {
+      body: undefined,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       }
-    })).rejects.toHaveProperty('message', 'FetchConfig not configured correctly! ErrorMessage: Unexpected token o in JSON at position 1')
+    })
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData.clientData).toEqual({})
   }, 100000)
 
-  it('throws an error if the fetchConfig has errors', async () => {
+  it('throws an error if the fetchConfig contains a body for a GET request', async () => {
     const authrite = new Authrite({
       baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
-    // Test a POST request whose body is not stringified
     await expect(authrite.request('/sendSomeData', {
-      body: {},
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })).rejects.toHaveProperty('message', 'FetchConfig not configured correctly! ErrorMessage: Unexpected token o in JSON at position 1')
-    // Test a GET request that contains a body
-    await expect(authrite.request('/sendSomeData', {
-      body: '{}',
+      body: JSON.stringify({ data: 'should not have a body' }),
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
