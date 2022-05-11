@@ -19,28 +19,33 @@ const middleware = (config = {}) => (req, res, next) => {
         error: 'Authrite version incompatible'
       })
     }
-    const serverNonce = createNonce(config.serverPrivateKey)
-    const message = req.body.nonce + serverNonce
-    const derivedPrivateKey = getPaymentPrivateKey({
-      recipientPrivateKey: config.serverPrivateKey,
-      senderPublicKey: req.body.identityKey,
-      invoiceNumber: 'authrite message signature-' + req.body.nonce + ' ' + serverNonce,
-      returnType: 'hex'
-    })
-    const signature = bsv.crypto.ECDSA.sign(
-      bsv.crypto.Hash.sha256(Buffer.from(message)),
-      bsv.PrivateKey.fromHex(derivedPrivateKey)
-    )
-
-    return res.status(200).json({
-      authrite: '0.1',
-      messageType: 'initialResponse',
-      identityKey: bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
-      nonce: serverNonce,
-      certificates: [],
-      requestedCertificates: [],
-      signature: signature.toString()
-    })
+    try {
+      const serverNonce = createNonce(config.serverPrivateKey)
+      const message = req.body.nonce + serverNonce
+      const derivedPrivateKey = getPaymentPrivateKey({
+        recipientPrivateKey: config.serverPrivateKey,
+        senderPublicKey: req.body.identityKey,
+        invoiceNumber: 'authrite message signature-' + req.body.nonce + ' ' + serverNonce,
+        returnType: 'hex'
+      })
+      const signature = bsv.crypto.ECDSA.sign(
+        bsv.crypto.Hash.sha256(Buffer.from(message)),
+        bsv.PrivateKey.fromHex(derivedPrivateKey)
+      )
+      return res.status(200).json({
+        authrite: '0.1',
+        messageType: 'initialResponse',
+        identityKey: bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
+        nonce: serverNonce,
+        certificates: [],
+        requestedCertificates: [],
+        signature: signature.toString()
+      })
+    } catch (error) {
+      return res.status(400).json({
+        error: `Server could not create initial response! ErrorMessage: ${error}`
+      })
+    }
   }
   try {
     if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
