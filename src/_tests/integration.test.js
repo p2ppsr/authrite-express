@@ -84,6 +84,28 @@ describe('authrite', () => {
     expect(responseData.clientData).toEqual(body)
   }, 100000)
 
+  it('Creates a request with a payload containing a buffer from the client to the server', async () => {
+    const authrite = new Authrite({
+      baseUrl: TEST_SERVER_BASEURL,
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
+    })
+    const dataBuffer = Buffer.from('Hello, Authrite', 'utf8')
+    const body = {
+      user: 'Bob',
+      buffer: dataBuffer
+    }
+    const response = await authrite.request('/sendSomeData', {
+      body,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    const data = Buffer.from(responseData.clientData.buffer).toString('utf8')
+    expect(data).toEqual('Hello, Authrite')
+  }, 100000)
+
   it('Creates a request with a payload to the server with no method specified', async () => {
     const authrite = new Authrite({
       baseUrl: TEST_SERVER_BASEURL,
