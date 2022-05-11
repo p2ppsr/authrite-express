@@ -4,6 +4,11 @@ const createNonce = require('./utils/createNonce')
 const verifyNonce = require('./utils/verifyNonce')
 const AUTHRITE_VERSION = '0.1'
 
+/**
+ * Authrite Middleware
+ * @param {object} config Configures the middleware with initial parameters
+ * @returns {function} A function that can be used as authentication middleware in an express server
+ */
 const middleware = (config = { method: 'GET' }) => (req, res, next) => {
   if (!config.initalRequestPath) {
     config.initalRequestPath = '/authrite/initialRequest'
