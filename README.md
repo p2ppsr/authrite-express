@@ -62,6 +62,10 @@ Authrite express middleware for providing mutual authentication with a client
 
 *   `config` **[object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Configures the middleware with initial parameters (optional, default `{}`)
 
+    *   `config.serverPrivateKey` **[String](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The server's private key used for derivations
+    *   `config.baseUrl` **[String](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The base url of the express server
+    *   `config.initialRequestPath` **[String](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The initial route path used to request the server's information and identity key
+
 Returns **[function](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Statements/function)** Which can be used as authentication middleware in an express server
 
 ## License
