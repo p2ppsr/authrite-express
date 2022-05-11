@@ -1,7 +1,7 @@
 {
   "name": "authrite-express",
   "version": "1.0.0",
-  "description": "",
+  "description": "Express middleware for providing mutual authentication with a client ",
   "main": "index.js",
   "scripts": {
     "test": "jest",
