@@ -25,8 +25,8 @@ const TEST_SERVER_BASEURL = `http://localhost:${port}`
 
 // Configure the express server to use the authrite middleware
 app.use(authrite.middleware({
-serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
-baseUrl: TEST_SERVER_BASEURL
+    serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
+    baseUrl: TEST_SERVER_BASEURL
 }))
 
 // Example Routes
