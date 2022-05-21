@@ -69,7 +69,7 @@ const middleware = (config = {}) => (req, res, next) => {
       returnType: 'publicKey'
     })
     // 2. Construct the message for verification
-    const messageToVerify = Object.keys(req.body).length !== 0
+    const messageToVerify = req.body
       ? JSON.stringify(req.body)
       : config.baseUrl + req.originalUrl
     // 3. Verify the signature
