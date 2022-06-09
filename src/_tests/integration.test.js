@@ -1,5 +1,5 @@
 /* eslint-env jest */
-const { Authrite } = require('../../../authrite-js/src/authrite') // !!!
+const { Authrite } = require('authrite-js')
 const fs = require('fs').promises
 
 const TEST_CLIENT_PRIVATE_KEY = '0d7889a0e56684ba795e9b1e28eb906df43454f8172ff3f6807b8cf9464994df'
@@ -60,29 +60,25 @@ describe('authrite', () => {
   // Note: clientPrivateKey and baseUrl requirements tested in authrite.test.js
   it('Creates an initial request from the client to the server', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
-      initialRequestPath: '/authrite/initialRequest',
-      initialRequestMethod: 'POST'
+      initialRequestPath: '/authrite/initialRequest'
     })
-    const response = await authrite.request('/apiRoute')
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/apiRoute')
     const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
     expect(responseData).toEqual({ user: 'data' })
   }, 100000)
 
   it('Throws an error if the route does not exist on the server', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
-      initialRequestPath: '/authrite/initialRequest',
-      initialRequestMethod: 'POST'
+      initialRequestPath: '/authrite/initialRequest'
     })
-    await expect(authrite.request('/someRandomRoute', {
+    await expect(authrite.request(TEST_SERVER_BASEURL + '/someRandomRoute', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
       }
-    })).rejects.toHaveProperty('message', 'FetchConfig not configured correctly! ErrorMessage: Route Not Found')
+    })).rejects.toHaveProperty('message', 'The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received null')
   }, 100000)
 
   it('Throws an error if an invalid request method is provided', async () => {
