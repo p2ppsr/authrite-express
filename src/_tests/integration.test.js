@@ -28,6 +28,9 @@ describe('authrite', () => {
           }))
 
           // Example Routes
+          app.get('/apiRoute', (req, res) => {
+            res.json({ message: 'success' })
+          })
           app.post('/apiRoute', (req, res) => {
             res.json({ user: 'data' })
           })
@@ -63,7 +66,7 @@ describe('authrite', () => {
     })
     const response = await authrite.request(TEST_SERVER_BASEURL + '/apiRoute')
     const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
-    expect(responseData).toEqual({ user: 'data' })
+    expect(responseData).toEqual({ message: 'success' })
   }, 100000)
 
   it('Throws an error if the route does not exist on the server', async () => {
@@ -81,7 +84,6 @@ describe('authrite', () => {
 
   it('Throws an error if an invalid request method is provided', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
       initialRequestPath: '/authrite/initialRequest',
       initialRequestMethod: 'POST'
@@ -98,7 +100,6 @@ describe('authrite', () => {
 
   it('Creates a GET request from the client to the server', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
       initialRequestPath: '/authrite/initialRequest',
       initialRequestMethod: 'POST'
@@ -115,7 +116,6 @@ describe('authrite', () => {
 
   it('Creates a request with a payload from the client to the server', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
     const body = {
@@ -135,7 +135,6 @@ describe('authrite', () => {
 
   it('Creates a request with a payload containing a buffer from the client to the server', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
     const dataBuffer = Buffer.from('Hello, Authrite', 'utf8')
@@ -157,7 +156,6 @@ describe('authrite', () => {
 
   it('Creates a request with a payload containing an image buffer from the client to the server', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
     // Get image buffer from local test file
@@ -193,29 +191,8 @@ describe('authrite', () => {
     expect(exists).toEqual(true)
   }, 100000)
 
-  it('Creates a request with a payload to the server with no method specified', async () => {
-    const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
-      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
-      initialRequestMethod: 'POST'
-    })
-    const body = {
-      user: 'Bob',
-      message: 'message from client'
-    }
-    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
-      body: JSON.stringify(body),
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
-    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
-    expect(responseData.clientData).toEqual(body)
-  }, 100000)
-
   it('Creates a request with a payload to the server with no method or header specified', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
     const body = {
@@ -223,6 +200,7 @@ describe('authrite', () => {
       message: 'message from client'
     }
     const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
+      method: 'POST',
       body: JSON.stringify(body)
     })
     const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
@@ -231,9 +209,7 @@ describe('authrite', () => {
 
   it('Creates a request with a payload that is not a string', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
-      initialRequestMethod: 'POST'
     })
     // An example song object that can be used in a request body
     class Song {
@@ -262,9 +238,8 @@ describe('authrite', () => {
     expect(responseData.clientData).toEqual(body)
   }, 100000)
 
-  it('Does not throw an error if the body of a POST request is empty', async () => {
+  it('Does not throw an error if the body of a POST request is undefined', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
     const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
@@ -280,7 +255,6 @@ describe('authrite', () => {
 
   it('throws an error if the fetchConfig contains a body for a GET request', async () => {
     const authrite = new Authrite({
-      baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
     await expect(authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {

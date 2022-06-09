@@ -69,9 +69,16 @@ const middleware = (config = {}) => (req, res, next) => {
       returnType: 'publicKey'
     })
     // 2. Construct the message for verification
-    const messageToVerify = req.body
+    let messageToVerify
+    if (req.method === 'GET' || req.method === 'HEAD') {
+      messageToVerify = config.baseUrl + req.originalUrl
+    }
+    else {
+      messageToVerify = req.body
       ? JSON.stringify(req.body)
       : config.baseUrl + req.originalUrl
+    }
+    
     // 3. Verify the signature
     const signature = bsv.crypto.Signature.fromString(
       req.headers['x-authrite-signature']
