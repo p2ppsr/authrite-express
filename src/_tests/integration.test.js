@@ -11,8 +11,8 @@ const express = require('express')
 const app = express()
 const authrite = require('../index')
 // Set a data limit to allow larger payloads
-app.use(express.json({ limit: '50mb' }))
-app.use(express.urlencoded({ limit: '50mb' }))
+app.use(express.json({ limit: '50mb', extended: true }))
+app.use(express.urlencoded({ limit: '50mb', extended: true }))
 
 let server
 describe('authrite', () => {
@@ -51,8 +51,6 @@ describe('authrite', () => {
   afterAll(() => {
     server.close()
   })
-  beforeEach(() => {
-  })
   afterEach(() => {
     jest.clearAllMocks()
   })
@@ -88,12 +86,14 @@ describe('authrite', () => {
       initialRequestPath: '/authrite/initialRequest',
       initialRequestMethod: 'POST'
     })
-    await expect(authrite.request('/someRandomRoute', {
+    await expect(authrite.request(TEST_SERVER_BASEURL + '/someRandomRoute', {
       method: 'IS_THIS_A_REQUEST_METHOD?',
       headers: {
         'Content-Type': 'application/json'
       }
-    })).rejects.toHaveProperty('message', 'FetchConfig not configured correctly! ErrorMessage: Method must be a valid HTTP token ["IS_THIS_A_REQUEST_METHOD?"]')
+    })).rejects.toThrow(new Error(
+      'Method must be a valid HTTP token ["IS_THIS_A_REQUEST_METHOD?"]'
+    ))
   }, 100000)
 
   it('Creates a GET request from the client to the server', async () => {
@@ -103,7 +103,7 @@ describe('authrite', () => {
       initialRequestPath: '/authrite/initialRequest',
       initialRequestMethod: 'POST'
     })
-    const response = await authrite.request('/getData', {
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/getData', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
@@ -122,7 +122,7 @@ describe('authrite', () => {
       user: 'Bob',
       message: 'message from client'
     }
-    const response = await authrite.request('/sendSomeData', {
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body: JSON.stringify(body),
       method: 'POST',
       headers: {
@@ -143,7 +143,7 @@ describe('authrite', () => {
       user: 'Bob',
       buffer: dataBuffer
     }
-    const response = await authrite.request('/sendSomeData', {
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body,
       method: 'POST',
       headers: {
@@ -168,7 +168,7 @@ describe('authrite', () => {
       buffer: dataBuffer
     }
     // Send the image data to the server, and then get the same data back from the server
-    const response = await authrite.request('/sendSomeData', {
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body,
       method: 'POST',
       headers: {
@@ -203,7 +203,7 @@ describe('authrite', () => {
       user: 'Bob',
       message: 'message from client'
     }
-    const response = await authrite.request('/sendSomeData', {
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body: JSON.stringify(body),
       headers: {
         'Content-Type': 'application/json'
@@ -222,7 +222,7 @@ describe('authrite', () => {
       user: 'Bob',
       message: 'message from client'
     }
-    const response = await authrite.request('/sendSomeData', {
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body: JSON.stringify(body)
     })
     const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
@@ -254,7 +254,7 @@ describe('authrite', () => {
         new Song('song7', '3:30', 'Brayden Langley')
       ]
     }
-    const response = await authrite.request('/sendSomeData', {
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body,
       method: 'POST'
     })
@@ -267,7 +267,7 @@ describe('authrite', () => {
       baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
-    const response = await authrite.request('/sendSomeData', {
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body: undefined,
       method: 'POST',
       headers: {
@@ -283,12 +283,14 @@ describe('authrite', () => {
       baseUrl: TEST_SERVER_BASEURL,
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
-    await expect(authrite.request('/sendSomeData', {
+    await expect(authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body: JSON.stringify({ data: 'should not have a body' }),
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'
       }
-    })).rejects.toHaveProperty('message', 'FetchConfig not configured correctly! ErrorMessage: Request with GET/HEAD method cannot have body')
+    })).rejects.toThrow(new Error(
+      'Request with GET/HEAD method cannot have body'
+    ))
   }, 100000)
 })
