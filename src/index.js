@@ -72,13 +72,12 @@ const middleware = (config = {}) => (req, res, next) => {
     let messageToVerify
     if (req.method === 'GET' || req.method === 'HEAD') {
       messageToVerify = config.baseUrl + req.originalUrl
-    }
-    else {
+    } else {
       messageToVerify = req.body
-      ? JSON.stringify(req.body)
-      : config.baseUrl + req.originalUrl
+        ? JSON.stringify(req.body)
+        : config.baseUrl + req.originalUrl
     }
-    
+
     // 3. Verify the signature
     const signature = bsv.crypto.Signature.fromString(
       req.headers['x-authrite-signature']
@@ -112,7 +111,7 @@ const middleware = (config = {}) => (req, res, next) => {
     })
     const responseSignature = bsv.crypto.ECDSA.sign(
       bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(json))),
-      bsv.PrivateKey.fromBuffer(derivedPrivateKey.toBuffer())
+      bsv.PrivateKey.fromBuffer(derivedPrivateKey.toBuffer({ size: 32 }))
     )
     res.set({
       'X-Authrite': AUTHRITE_VERSION,
