@@ -115,14 +115,45 @@ describe('authrite', () => {
   }, 100000)
 
   it('Creates a request with a payload from the client to the server', async () => {
-    const authrite = new Authrite({
-      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
-    })
     const body = {
       user: 'Bob',
       message: 'message from client'
     }
-    const response = await authrite.request(TEST_SERVER_BASEURL + '/sendSomeData', {
+    const response = await new Authrite({ privateKey: TEST_CLIENT_PRIVATE_KEY }).request(TEST_SERVER_BASEURL + '/sendSomeData', {
+      body: JSON.stringify(body),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData.clientData).toEqual(body)
+  }, 100000)
+
+  it('Creates a request with a payload from the client to the server with explicit Babbage signing strategy', async () => {
+    const body = {
+      user: 'Bob',
+      message: 'message from client'
+    }
+    // const authrite = new Authrite()
+    const response = await new Authrite({ signingStrategy: 'Babbage' }).request(TEST_SERVER_BASEURL + '/sendSomeData', {
+      body: JSON.stringify(body),
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    })
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData.clientData).toEqual(body)
+  }, 100000)
+
+  it('Creates a request with a payload from the client to the server with implicit Babbage signing strategy', async () => {
+    const body = {
+      user: 'Bob',
+      message: 'message from client'
+    }
+    // const authrite = new Authrite()
+    const response = await new Authrite().request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body: JSON.stringify(body),
       method: 'POST',
       headers: {
@@ -209,7 +240,7 @@ describe('authrite', () => {
 
   it('Creates a request with a payload that is not a string', async () => {
     const authrite = new Authrite({
-      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
     // An example song object that can be used in a request body
     class Song {
