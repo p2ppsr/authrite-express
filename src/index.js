@@ -66,7 +66,7 @@ const middleware = (config = {}) => (req, res, next) => {
     }
     if (!verifyNonce(req.headers['x-authrite-yournonce'], config.serverPrivateKey)) {
       return res.status(401).json({
-        error: 'show sum\' R.E.S.P.E.C.T.'
+        error: 'Nonce verification failed!'
       })
     }
     // Validate the client's request signature according to the specification
