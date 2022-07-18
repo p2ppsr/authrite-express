@@ -17,7 +17,11 @@ const middleware = (config = {}) => (req, res, next) => {
     config.initalRequestPath = '/authrite/initialRequest'
   }
   if (req.path === config.initalRequestPath) {
-    if (AUTHRITE_VERSION !== req.body.authrite) {
+    if (req.body && !req.body.authrite) {
+      return res.status(400).json({
+        error: 'Initial request must come from a valid Authrite client!'
+      })
+    } else if (AUTHRITE_VERSION !== req.body.authrite) {
       return res.status(400).json({
         error: 'Authrite version incompatible'
       })
@@ -51,7 +55,11 @@ const middleware = (config = {}) => (req, res, next) => {
     }
   }
   try {
-    if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
+    if (!req.headers['x-authrite']) {
+      return res.status(400).json({
+        error: 'Request must be initiated from a valid Authrite client!'
+      })
+    } else if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
       return res.status(400).json({
         error: 'Authrite version incompatible'
       })
