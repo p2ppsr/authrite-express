@@ -17,7 +17,11 @@ const middleware = (config = {}) => (req, res, next) => {
     config.initalRequestPath = '/authrite/initialRequest'
   }
   if (req.path === config.initalRequestPath) {
-    if (AUTHRITE_VERSION !== req.body.authrite) {
+    if (req.body && !req.body.authrite) {
+      return res.status(400).json({
+        error: 'Initial request must come from a valid Authrite client!'
+      })
+    } else if (AUTHRITE_VERSION !== req.body.authrite) {
       return res.status(400).json({
         error: 'Authrite version incompatible'
       })
@@ -28,7 +32,7 @@ const middleware = (config = {}) => (req, res, next) => {
       const derivedPrivateKey = getPaymentPrivateKey({
         recipientPrivateKey: config.serverPrivateKey,
         senderPublicKey: req.body.identityKey,
-        invoiceNumber: 'authrite message signature-' + req.body.nonce + ' ' + serverNonce,
+        invoiceNumber: '2-authrite message signature-' + req.body.nonce + ' ' + serverNonce,
         returnType: 'wif'
       })
       const signature = bsv.crypto.ECDSA.sign(
@@ -51,21 +55,25 @@ const middleware = (config = {}) => (req, res, next) => {
     }
   }
   try {
-    if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
+    if (!req.headers['x-authrite']) {
+      return res.status(400).json({
+        error: 'Request must be initiated from a valid Authrite client!'
+      })
+    } else if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
       return res.status(400).json({
         error: 'Authrite version incompatible'
       })
     }
     if (!verifyNonce(req.headers['x-authrite-yournonce'], config.serverPrivateKey)) {
       return res.status(401).json({
-        error: 'show sum\' R.E.S.P.E.C.T.'
+        error: 'Nonce verification failed!'
       })
     }
     // Validate the client's request signature according to the specification
     const signingPublicKey = getPaymentAddress({
       senderPrivateKey: config.serverPrivateKey,
       recipientPublicKey: req.headers['x-authrite-identity-key'],
-      invoiceNumber: `authrite message signature-${req.headers['x-authrite-nonce']} ${req.headers['x-authrite-yournonce']}`,
+      invoiceNumber: `2-authrite message signature-${req.headers['x-authrite-nonce']} ${req.headers['x-authrite-yournonce']}`,
       returnType: 'publicKey'
     })
     // 2. Construct the message for verification
@@ -106,7 +114,7 @@ const middleware = (config = {}) => (req, res, next) => {
     const derivedPrivateKey = getPaymentPrivateKey({
       recipientPrivateKey: config.serverPrivateKey,
       senderPublicKey: req.headers['x-authrite-identity-key'],
-      invoiceNumber: 'authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + responseNonce,
+      invoiceNumber: '2-authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + responseNonce,
       returnType: 'bsv'
     })
     const responseSignature = bsv.crypto.ECDSA.sign(

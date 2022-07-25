@@ -26,7 +26,7 @@ const TEST_REQ_DATA = {
 const derivedClientPrivateKey = sendover.getPaymentPrivateKey({
   recipientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
   senderPublicKey: bsv.PrivateKey.fromHex(TEST_SERVER_PRIVATE_KEY).publicKey.toString(),
-  invoiceNumber: 'authrite message signature-' + TEST_CLIENT_NONCE + ' ' + TEST_SERVER_NONCE,
+  invoiceNumber: '2-authrite message signature-' + TEST_CLIENT_NONCE + ' ' + TEST_SERVER_NONCE,
   returnType: 'hex'
 })
 
@@ -142,7 +142,7 @@ describe('authrite', () => {
     const badKey = sendover.getPaymentPrivateKey({
       recipientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
       senderPublicKey: bsv.PrivateKey.fromHex(TEST_SERVER_PRIVATE_KEY).publicKey.toString(),
-      invoiceNumber: 'authrite message signature-' + TEST_CLIENT_NONCE + ' ' + TEST_SERVER_NONCE + 'badData',
+      invoiceNumber: '2-authrite message signature-' + TEST_CLIENT_NONCE + ' ' + TEST_SERVER_NONCE + 'badData',
       returnType: 'hex'
     })
     const dataToSign = JSON.stringify(mockReq.body)
@@ -172,7 +172,7 @@ describe('authrite', () => {
     const SERVER_MSG = { server: 'response' }
     mockRes.json(SERVER_MSG)
     const messageToVerify = JSON.stringify(SERVER_MSG)
-    const invoiceNumber = `authrite message signature-${mockRes.headers['X-Authrite-YourNonce']} ${mockRes.headers['X-Authrite-Nonce']}`
+    const invoiceNumber = `2-authrite message signature-${mockRes.headers['X-Authrite-YourNonce']} ${mockRes.headers['X-Authrite-Nonce']}`
     expect(bsv.crypto.ECDSA.verify(
       bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
       bsv.crypto.Signature.fromString(mockRes.headers['X-Authrite-Signature']),
