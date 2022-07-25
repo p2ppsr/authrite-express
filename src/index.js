@@ -32,7 +32,7 @@ const middleware = (config = {}) => (req, res, next) => {
       const derivedPrivateKey = getPaymentPrivateKey({
         recipientPrivateKey: config.serverPrivateKey,
         senderPublicKey: req.body.identityKey,
-        invoiceNumber: 'authrite message signature-' + req.body.nonce + ' ' + serverNonce,
+        invoiceNumber: '2-authrite message signature-' + req.body.nonce + ' ' + serverNonce,
         returnType: 'wif'
       })
       const signature = bsv.crypto.ECDSA.sign(
@@ -73,7 +73,7 @@ const middleware = (config = {}) => (req, res, next) => {
     const signingPublicKey = getPaymentAddress({
       senderPrivateKey: config.serverPrivateKey,
       recipientPublicKey: req.headers['x-authrite-identity-key'],
-      invoiceNumber: `authrite message signature-${req.headers['x-authrite-nonce']} ${req.headers['x-authrite-yournonce']}`,
+      invoiceNumber: `2-authrite message signature-${req.headers['x-authrite-nonce']} ${req.headers['x-authrite-yournonce']}`,
       returnType: 'publicKey'
     })
     // 2. Construct the message for verification
@@ -114,7 +114,7 @@ const middleware = (config = {}) => (req, res, next) => {
     const derivedPrivateKey = getPaymentPrivateKey({
       recipientPrivateKey: config.serverPrivateKey,
       senderPublicKey: req.headers['x-authrite-identity-key'],
-      invoiceNumber: 'authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + responseNonce,
+      invoiceNumber: '2-authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + responseNonce,
       returnType: 'bsv'
     })
     const responseSignature = bsv.crypto.ECDSA.sign(
