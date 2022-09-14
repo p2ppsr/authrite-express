@@ -115,11 +115,11 @@ const middleware = (config = {}) => (req, res, next) => {
       recipientPrivateKey: config.serverPrivateKey,
       senderPublicKey: req.headers['x-authrite-identity-key'],
       invoiceNumber: '2-authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + responseNonce,
-      returnType: 'bsv'
+      returnType: 'hex'
     })
     const responseSignature = bsv.crypto.ECDSA.sign(
       bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(json))),
-      bsv.PrivateKey.fromBuffer(derivedPrivateKey.toBuffer({ size: 32 }))
+      bsv.PrivateKey.fromBuffer(Buffer.from(derivedPrivateKey, 'hex'))
     )
     res.set({
       'X-Authrite': AUTHRITE_VERSION,
