@@ -13,7 +13,7 @@ const AUTHRITE_VERSION = '0.1'
  * @param {String} config.initialRequestPath The initial route path used to request the server's information and identity key
  * @returns {function} Which can be used as authentication middleware in an express server
  */
-const middleware = (config = {}) => (req, res, next) => {
+const middleware = (config = {}) => async (req, res, next) => {
   if (!config.initalRequestPath) {
     config.initalRequestPath = '/authrite/initialRequest'
   }
@@ -101,37 +101,46 @@ const middleware = (config = {}) => (req, res, next) => {
         error: 'Signature verification failed!'
       })
     }
-    const certificates = JSON.parse(req.headers['x-authrite-certificates']).map(async cert => {
-      if(cert.subject !== identityKey) {
-        return res.status(401).json({
-          error: 'Certificate subject does not match identity key of the request sender!'
-        })
-      }
+    let certificates = JSON.parse(req.headers['x-authrite-certificates'])
+    try {
+      for(let cert in certificates) {
+        if(cert.subject !== identityKey) {
+          let e = new Error('Certificate subject does not match identity key of the request sender!')
+          e.code = 'ERR_INVALID_SUBJECT'
+          throw e
+        }
 
-      // Check valid signature
-      try {
-        authriteUtils.verifyCertificateSignature(cert)
-      } catch (e) {
-        return res.status(401).json({
-          error: `Invalid certificate signature: ${cert.signature}`
-        })
-      }
+        // Check valid signature
+        try {
+          authriteUtils.verifyCertificateSignature(cert)
+        } catch (err) {
+          let e = new Error('Invalid certificate signature')
+          e.code = 'ERR_INVALID_CERT'
+          throw e
+        }
 
-      // Check encrypted fields and decrypt them
-      let decryptedFields = []
-      try {
-        decryptedFields = await authriteUtils.decryptCertificateFields(cert, cert.keyring, config.serverPrivateKey)
-      } catch (e) {
-        return res.status(401).json({
-          error: `Could not decrypt certificate fields`
-        })
-      }
+        // Check encrypted fields and decrypt them
+        let decryptedFields = {}
+        try {
+          decryptedFields = await authriteUtils.decryptCertificateFields(cert, cert.keyring, config.serverPrivateKey)
+        } catch (err) {
+          let e = new Error('Could not decrypt certificate fields')
+          e.code = 'ERR_DECRYPTION_FAILED'
+          throw e
+        }
 
-      return {
-        ...cert,
-        decryptedFields
+        return {
+          ...cert,
+          decryptedFields
+        }
       }
-    })
+    } catch (e) {
+      return res.status(401).json({
+        status: 'error',
+        code: e.code,
+        description: e.message
+      })
+    }
     req.authrite = {
       identityKey: req.headers['x-authrite-identity-key'],
       certificates
