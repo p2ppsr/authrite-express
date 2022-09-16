@@ -8,7 +8,7 @@ const AUTHRITE_VERSION = '0.1'
  * Authrite express middleware for providing mutual authentication with a client
  * @param {object} config Configures the middleware with initial parameters
  * @param {String} config.serverPrivateKey The server's private key used for derivations
- * @param {String} config.requestedCertificates The certificate set the server requests
+ * @param {Object} config.requestedCertificates The RequestedCertificateSet that the server will send to client. An object with `certifiers` and `types`, as per the Authrite specification.
  * @param {String} config.baseUrl The base url of the express server
  * @param {String} config.initialRequestPath The initial route path used to request the server's information and identity key
  * @returns {function} Which can be used as authentication middleware in an express server
