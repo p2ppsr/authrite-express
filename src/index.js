@@ -101,39 +101,40 @@ const middleware = (config = {}) => (req, res, next) => {
         error: 'Signature verification failed!'
       })
     }
+    const certificates = JSON.parse(req.headers['x-authrite-certificates']).map(async cert => {
+      if(cert.subject !== identityKey) {
+        return res.status(401).json({
+          error: 'Certificate subject does not match identity key of the request sender!'
+        })
+      }
+
+      // Check valid signature
+      try {
+        authriteUtils.verifyCertificateSignature(cert)
+      } catch (e) {
+        return res.status(401).json({
+          error: `Invalid certificate signature: ${cert.signature}`
+        })
+      }
+
+      // Check encrypted fields and decrypt them
+      let decryptedFields = []
+      try {
+        decryptedFields = await authriteUtils.decryptCertificateFields(cert, cert.keyring, config.serverPrivateKey)
+      } catch (e) {
+        return res.status(401).json({
+          error: `Could not decrypt certificate fields`
+        })
+      }
+
+      return {
+        ...cert,
+        decryptedFields
+      }
+    })
     req.authrite = {
       identityKey: req.headers['x-authrite-identity-key'],
-      certificates: JSON.parse(req.headers['x-authrite-certificates']).map(async cert => {
-        if(cert.subject !== identityKey) {
-          return res.status(401).json({
-            error: 'Certificate subject does not match identity key of the request sender!'
-          })
-        }
-
-        // Check valid signature
-        try {
-          authriteUtils.verifyCertificateSignature(cert)
-        } catch (e) {
-          return res.status(401).json({
-            error: `Invalid certificate signature: ${cert.signature}`
-          })
-        }
-
-        // Check encrypted fields and decrypt them
-        let decryptedFields = []
-        try {
-          decryptedFields = await authriteUtils.decryptCertificateFields(cert, cert.keyring, config.serverPrivateKey)
-        } catch (e) {
-          return res.status(401).json({
-            error: `Could not decrypt certificate fields`
-          })
-        }
-
-        return {
-          ...cert,
-          decryptedFields
-        }
-      })
+      certificates
     }
   } catch (error) {
     return res.status(400).json({
