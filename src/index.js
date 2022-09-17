@@ -1,18 +1,19 @@
 const bsv = require('bsv')
 const { getPaymentAddress, getPaymentPrivateKey } = require('sendover')
-const createNonce = require('./utils/createNonce')
-const verifyNonce = require('./utils/verifyNonce')
+const cryptononce = require('cryptononce')
+import authriteUtils from 'authrite-utils'
 const AUTHRITE_VERSION = '0.1'
 
 /**
  * Authrite express middleware for providing mutual authentication with a client
  * @param {object} config Configures the middleware with initial parameters
  * @param {String} config.serverPrivateKey The server's private key used for derivations
+ * @param {Object} config.requestedCertificates The RequestedCertificateSet that the server will send to client. An object with `certifiers` and `types`, as per the Authrite specification.
  * @param {String} config.baseUrl The base url of the express server
  * @param {String} config.initialRequestPath The initial route path used to request the server's information and identity key
  * @returns {function} Which can be used as authentication middleware in an express server
  */
-const middleware = (config = {}) => (req, res, next) => {
+const middleware = (config = {}) => async (req, res, next) => {
   if (!config.initalRequestPath) {
     config.initalRequestPath = '/authrite/initialRequest'
   }
@@ -27,7 +28,7 @@ const middleware = (config = {}) => (req, res, next) => {
       })
     }
     try {
-      const serverNonce = createNonce(config.serverPrivateKey)
+      const serverNonce = cryptononce.createNonce(config.serverPrivateKey)
       const message = req.body.nonce + serverNonce
       const derivedPrivateKey = getPaymentPrivateKey({
         recipientPrivateKey: config.serverPrivateKey,
@@ -45,7 +46,7 @@ const middleware = (config = {}) => (req, res, next) => {
         identityKey: bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
         nonce: serverNonce,
         certificates: [],
-        requestedCertificates: [],
+        requestedCertificates: config.requestedCertificates,
         signature: signature.toString()
       })
     } catch (error) {
@@ -64,7 +65,7 @@ const middleware = (config = {}) => (req, res, next) => {
         error: 'Authrite version incompatible'
       })
     }
-    if (!verifyNonce(req.headers['x-authrite-yournonce'], config.serverPrivateKey)) {
+    if (!cryptononce.verifyNonce(req.headers['x-authrite-yournonce'], config.serverPrivateKey)) {
       return res.status(401).json({
         error: 'Nonce verification failed!'
       })
@@ -100,8 +101,47 @@ const middleware = (config = {}) => (req, res, next) => {
         error: 'Signature verification failed!'
       })
     }
+    let certificates = JSON.parse(req.headers['x-authrite-certificates'])
+    for(let cert in certificates) {
+      if(cert.subject !== identityKey) {
+        return res.status(401).json({
+          status: 'error',
+          code: 'ERR_INVALID_SUBJECT',
+          description: 'Certificate subject does not match identity key of the request sender!'
+        })
+      }
+
+      // Check valid signature
+      try {
+        authriteUtils.verifyCertificateSignature(cert)
+      } catch (err) {
+        return res.status(401).json({
+          status: 'error',
+          code: 'ERR_INVALID_CERT',
+          description: 'Invalid certificate signature'
+        })
+      }
+
+      // Check encrypted fields and decrypt them
+      let decryptedFields = {}
+      try {
+        decryptedFields = await authriteUtils.decryptCertificateFields(cert, cert.keyring, config.serverPrivateKey)
+      } catch (err) {
+        return res.status(401).json({
+          status: 'error',
+          code: 'ERR_DECRYPTION_FAILED',
+          description: 'Could not decrypt certificate fields'
+        })
+      }
+
+      cert = {
+        ...cert,
+        decryptedFields
+      }
+    }
     req.authrite = {
-      identityKey: req.headers['x-authrite-identity-key']
+      identityKey: req.headers['x-authrite-identity-key'],
+      certificates
     }
   } catch (error) {
     return res.status(400).json({
@@ -110,7 +150,7 @@ const middleware = (config = {}) => (req, res, next) => {
   }
   const unsignedJson = res.json
   res.json = (json) => {
-    const responseNonce = createNonce(config.serverPrivateKey)
+    const responseNonce = cryptononce.createNonce(config.serverPrivateKey)
     const derivedPrivateKey = getPaymentPrivateKey({
       recipientPrivateKey: config.serverPrivateKey,
       senderPublicKey: req.headers['x-authrite-identity-key'],
