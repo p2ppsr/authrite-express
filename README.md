@@ -69,6 +69,7 @@ Authrite express middleware for providing mutual authentication with a client
 *   `config` **[object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** Configures the middleware with initial parameters (optional, default `{}`)
 
     *   `config.serverPrivateKey` **[String](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The server's private key used for derivations
+    *   `config.requestedCertificates` **[Object](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/Object)** The RequestedCertificateSet that the server will send to client. An object with `certifiers` and `types`, as per the Authrite specification.
     *   `config.baseUrl` **[String](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The base url of the express server
     *   `config.initialRequestPath` **[String](https://developer.mozilla.org/docs/Web/JavaScript/Reference/Global_Objects/String)** The initial route path used to request the server's information and identity key
 
