@@ -134,7 +134,7 @@ const middleware = (config = {}) => async (req, res, next) => {
         })
       }
 
-      return {
+      cert = {
         ...cert,
         decryptedFields
       }
