@@ -1,11 +1,10 @@
 /* eslint-env jest */
-const bsv = require('bsv')
+const bsv = require('babbage-bsv')
 const crypto = require('crypto')
 const sendover = require('sendover')
 
 const { middleware } = require('../index')
-const createNonce = require('../utils/createNonce')
-const verifyNonce = require('../utils/verifyNonce')
+const { createNonce, verifyNonce } = require('cryptononce')
 
 const TEST_CLIENT_PRIVATE_KEY = '0d7889a0e56684ba795e9b1e28eb906df43454f8172ff3f6807b8cf9464994df'
 const TEST_SERVER_PRIVATE_KEY = '6dcc124be5f382be631d49ba12f61adbce33a5ac14f6ddee12de25272f943f8b'
@@ -58,7 +57,11 @@ describe('authrite', () => {
           nonce: TEST_CLIENT_NONCE,
           requestedCertificates: []
         },
-        path: '/authrite/initialRequest'
+        path: '/authrite/initialRequest',
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        }
       },
       normalRequest: {
         body: TEST_REQ_DATA.body,
@@ -70,7 +73,7 @@ describe('authrite', () => {
           'x-authrite-identity-key': bsv.PrivateKey.fromHex(TEST_CLIENT_PRIVATE_KEY).publicKey.toString(),
           'x-authrite-nonce': TEST_CLIENT_NONCE,
           'x-authrite-yournonce': TEST_SERVER_NONCE,
-          'x-authrite-certificates': [],
+          'x-authrite-certificates': '[]',
           'x-authrite-signature': requestSignature.toString()
         }
       }
@@ -96,14 +99,17 @@ describe('authrite', () => {
     })
     const response = authriteMiddleware(mockReq, mockRes, mockNext)
 
-    expect(response.status).toHaveBeenLastCalledWith(200)
+    expect(mockRes.status).toHaveBeenLastCalledWith(200)
     expect(mockRes.json).toHaveBeenCalledWith({
       authrite: '0.1',
       messageType: 'initialResponse',
       identityKey: bsv.PrivateKey.fromHex(TEST_SERVER_PRIVATE_KEY).publicKey.toString(),
       nonce: expect.any(String),
       certificates: [],
-      requestedCertificates: [],
+      requestedCertificates: {
+        types: {},
+        certifiers: []
+      },
       signature: expect.any(String)
     })
   })
@@ -118,9 +124,9 @@ describe('authrite', () => {
     authriteMiddleware(mockReq, mockRes)
     // Expect an error to be returned
     expect(mockRes.status).toHaveBeenLastCalledWith(400)
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Authrite version incompatible'
-    })
+    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+      code: 'ERR_AUTHRITE_VERSION_MISMATCH'
+    }))
   })
   it('throws an error if the authrite versions do not match in subsequent requests', async () => {
     mockReq = VALID.normalRequest
@@ -133,9 +139,11 @@ describe('authrite', () => {
     authriteMiddleware(mockReq, mockRes)
     // Expect an error to be returned
     expect(mockRes.status).toHaveBeenLastCalledWith(400)
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Authrite version incompatible'
-    })
+    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+      code: 'ERR_AUTHRITE_VERSION_MISMATCH',
+      clientVersion: '0.2',
+      serverVersion: '0.1'
+    }))
   })
   it('throws an error if the signature is invalid', async () => {
     mockReq = VALID.normalRequest
@@ -157,25 +165,26 @@ describe('authrite', () => {
     })
     authriteMiddleware(mockReq, mockRes, mockNext)
     expect(mockRes.status).toHaveBeenLastCalledWith(401)
-    expect(mockRes.json).toHaveBeenCalledWith({
-      error: 'Signature verification failed!'
-    })
+    expect(mockRes.json).toHaveBeenCalledWith(expect.objectContaining({
+      code: 'ERR_AUTHRITE_INVALID_SIGNATURE'
+    }))
   })
   // Note: Request and response validated in integration test.
-  it('returns a valid response to a valid request from the client', () => {
+  it('returns a valid response to a valid request from the client', async () => {
     mockReq = VALID.normalRequest
     const authriteMiddleware = middleware({
       serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
       baseUrl: TEST_SERVER_BASEURL
     })
-    authriteMiddleware(mockReq, mockRes, mockNext)
+    await authriteMiddleware(mockReq, mockRes, mockNext)
     const SERVER_MSG = { server: 'response' }
     mockRes.json(SERVER_MSG)
     const messageToVerify = JSON.stringify(SERVER_MSG)
-    const invoiceNumber = `2-authrite message signature-${mockRes.headers['X-Authrite-YourNonce']} ${mockRes.headers['X-Authrite-Nonce']}`
+    const responseHeaders = mockRes.set.mock.calls[0][0]
+    const invoiceNumber = `2-authrite message signature-${responseHeaders['X-Authrite-YourNonce']} ${responseHeaders['X-Authrite-Nonce']}`
     expect(bsv.crypto.ECDSA.verify(
       bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
-      bsv.crypto.Signature.fromString(mockRes.headers['X-Authrite-Signature']),
+      bsv.crypto.Signature.fromString(responseHeaders['X-Authrite-Signature']),
       bsv.PublicKey.fromString(sendover.getPaymentAddress({
         senderPrivateKey: TEST_CLIENT_PRIVATE_KEY,
         recipientPublicKey: bsv.PrivateKey.fromString(TEST_SERVER_PRIVATE_KEY).publicKey.toString(),

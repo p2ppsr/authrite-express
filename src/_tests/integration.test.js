@@ -119,7 +119,7 @@ describe('authrite', () => {
       user: 'Bob',
       message: 'message from client'
     }
-    const response = await new Authrite({ privateKey: TEST_CLIENT_PRIVATE_KEY }).request(TEST_SERVER_BASEURL + '/sendSomeData', {
+    const response = await new Authrite({ clientPrivateKey: TEST_CLIENT_PRIVATE_KEY }).request(TEST_SERVER_BASEURL + '/sendSomeData', {
       body: JSON.stringify(body),
       method: 'POST',
       headers: {
