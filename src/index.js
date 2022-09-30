@@ -280,12 +280,15 @@ const middleware = (config = {}) => {
           description: 'The server was unable to parse the value of the "X-Authrite-Certificates HTTP header. Ensure the value is a properly-formatted JSON array of certificates.'
         })
       }
-      for (let cert in certificates) {
-        if (cert.subject !== identityKey) {
+      for (let c in certificates) {
+        let cert = certificates[c]
+        if (cert.subject !== req.headers['x-authrite-identity-key']) {
           return res.status(401).json({
             status: 'error',
             code: 'ERR_INVALID_SUBJECT',
-            description: 'Certificate subject does not match identity key of the request sender!'
+            description: `The subject of one of your certificates ("${cert.subject}") is not the same as the request sender ("${req.headers['x-authrite-identity-key']}").`,
+            identityKey: req.headers['x-authrite-identity-key'],
+            certificateSubject: cert.subject
           })
         }
 
@@ -293,11 +296,15 @@ const middleware = (config = {}) => {
         try {
           authriteUtils.verifyCertificateSignature(cert)
         } catch (err) {
-          return res.status(401).json({
-            status: 'error',
-            code: 'ERR_INVALID_CERT',
-            description: 'Invalid certificate signature'
-          })
+          if (err.code && err.code.startsWith('ERR_AUTHRITE')) {
+            return res.status(401).json({
+              status: 'error',
+              code: err.code,
+              description: err.message
+            })
+          } else {
+            throw e
+          }
         }
 
         // Check encrypted fields and decrypt them
@@ -316,7 +323,7 @@ const middleware = (config = {}) => {
           })
         }
 
-        cert = {
+        certificates[c] = {
           ...cert,
           decryptedFields
         }
