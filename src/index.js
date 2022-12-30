@@ -328,8 +328,13 @@ const middleware = (config = {}) => {
           decryptedFields
         }
       }
+      // Compress evil uncompressed public keys
+      let identityKey = req.headers['x-authrite-identity-key']
+      if (identityKey.length > 66) {
+        identityKey = new bsv.PublicKey(identityKey).toCompressed().toString()
+      }
       req.authrite = {
-        identityKey: req.headers['x-authrite-identity-key'],
+        identityKey,
         certificates
       }
     } catch (error) {
