@@ -22,12 +22,15 @@ This example demonstrates creating a simple express server that makes use of the
 ```js
 const authrite = require('authrite-express')
 const express = require('express')
+const bodyparser = require('body-parser')
 const app = express()
 const port = 5000
 
 const TEST_SERVER_PRIVATE_KEY = 
 '6dcc124be5f382be631d49ba12f61adbce33a5ac14f6ddee12de25272f943f8b'
 const TEST_SERVER_BASEURL = `http://localhost:${port}`
+
+app.use(bodyparser.json())
 
 // Configure the express server to use the authrite middleware
 app.use(authrite.middleware({
