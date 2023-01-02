@@ -31,8 +31,8 @@ const middleware = (config = {}) => {
     e.code = 'ERR_MALFORMED_BASEURL'
     throw e
   }
-  if (!config.initalRequestPath) {
-    config.initalRequestPath = '/authrite/initialRequest'
+  if (!config.initialRequestPath) {
+    config.initialRequestPath = '/authrite/initialRequest'
   }
   if (!config.serverPrivateKey || typeof config.serverPrivateKey !== 'string') {
     const e = new Error(
@@ -76,7 +76,7 @@ const middleware = (config = {}) => {
     throw e
   }
   return async (req, res, next) => {
-    if (req.path === config.initalRequestPath) {
+    if (req.path === config.initialRequestPath) {
       if (req.method === 'OPTIONS') {
         return res.sendStatus(200)
       }
