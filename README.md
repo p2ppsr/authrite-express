@@ -31,7 +31,18 @@ const TEST_SERVER_PRIVATE_KEY =
 const TEST_SERVER_BASEURL = `http://localhost:${port}`
 
 app.use(bodyparser.json())
-
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Headers', '*')
+  res.header('Access-Control-Allow-Methods', '*')
+  res.header('Access-Control-Expose-Headers', '*')
+  res.header('Access-Control-Allow-Private-Network', 'true')
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200)
+  } else {
+    next()
+  }
+})
 // Configure the express server to use the authrite middleware
 app.use(authrite.middleware({
     serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
