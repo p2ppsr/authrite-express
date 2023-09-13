@@ -229,26 +229,16 @@ const middleware = (config = {}) => {
       try {
         const serverNonce = cryptononce.createNonce(config.serverPrivateKey)
         const message = req.body.nonce + serverNonce
-        const derivedPrivateKey = getPaymentPrivateKey({
-          recipientPrivateKey: config.serverPrivateKey,
-          senderPublicKey: req.body.identityKey,
-          invoiceNumber: '2-authrite message signature-' + req.body.nonce + ' ' + serverNonce,
-          returnType: 'wif'
-        })
-        const signature = bsv.crypto.ECDSA.sign(
-          bsv.crypto.Hash.sha256(Buffer.from(message)),
-          bsv.PrivateKey.fromWIF(derivedPrivateKey)
-        )
-        return res.status(200).json({
-          authrite: AUTHRITE_VERSION,
-          messageType: 'initialResponse',
-          identityKey: bsv.PrivateKey.fromHex(config.serverPrivateKey)
-            .publicKey.toString(),
-          nonce: serverNonce,
-          certificates: [],
-          requestedCertificates: config.requestedCertificates,
-          signature: signature.toString()
-        })
+
+        // Get auth headers to send back to the client
+        return res.status(200).json(getAuthResponseHeaders({
+          serverPrivateKey: config.serverPrivateKey,
+          clientPublicKey: req.body.identityKey,
+          clientNonce: req.body.nonce,
+          responseNonce: serverNonce,
+          messageToSign: message,
+          initialResponse: true
+        }))
       } catch (error) {
         console.error(error)
         return res.status(500).json({

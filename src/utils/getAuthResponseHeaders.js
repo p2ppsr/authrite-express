@@ -11,7 +11,7 @@ const { getPaymentPrivateKey } = require('sendover')
  * @param {boolean} initialRequest
  * @returns {object} - the required response headers for authentication
  */
-const getAuthResponseHeaders = (serverPrivateKey, clientPublicKey, clientNonce, responseNonce, messageToSign = 'test', initialResponse = false) => {
+const getAuthResponseHeaders = ({ serverPrivateKey, clientPublicKey, clientNonce, responseNonce, messageToSign = 'test', initialResponse = false }) => {
   // Derive the signing private key
   const derivedPrivateKey = getPaymentPrivateKey({
     recipientPrivateKey: serverPrivateKey,
