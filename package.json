@@ -23,7 +23,8 @@
     "authrite-utils": "^0.1.8",
     "babbage-bsv": "^0.1.1",
     "cryptononce": "^0.1.0",
-    "sendover": "^1.1.5"
+    "sendover": "^1.1.5",
+    "socket.io": "^4.7.2"
   },
   "devDependencies": {
     "authrite-js": "^0.2.0",

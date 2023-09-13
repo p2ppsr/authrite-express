@@ -4,6 +4,103 @@ const cryptononce = require('cryptononce')
 const authriteUtils = require('authrite-utils')
 const AUTHRITE_VERSION = '0.1'
 
+const getAuthResponseHeaders = require('./utils/getAuthResponseHeaders')
+const validateAuthHeaders = require('./utils/validateAuthHeaders')
+
+/**
+ * Provides server-side access to Authrite protected sockets
+ */
+class AuthSock {
+  constructor (http, options) {
+    // Initialize necessary server properties
+    this.io = require('socket.io')(http, options)
+    this.serverPrivateKey = options.serverPrivateKey // TODO: Consider access controls
+    this.serverPublicKey = new bsv.PrivateKey(this.serverPrivateKey).publicKey.toString('hex')
+    this.serverNonce = cryptononce.createNonce(this.serverPrivateKey)
+
+    /**
+     * Configure web sockets initial connection middleware
+     */
+    this.io.use((socket, next) => {
+      try {
+        console.log(socket.request.headers)
+        if (socket.request.headers['x-authrite'] === '0.1') {
+        // Get initial request params
+          this.clientPublicKey = socket.request.headers['x-authrite-identity-key']
+          const clientNonce = socket.request.headers['x-authrite-nonce']
+          const message = clientNonce + this.serverNonce
+
+          // Get response headers for authentication
+          const headers = getAuthResponseHeaders(
+            this.serverPrivateKey,
+            this.clientPublicKey,
+            clientNonce,
+            this.serverNonce,
+            message,
+            true
+          )
+          // TODO: catch errors from above
+
+          // Send the initial request response to the client
+          socket.emit('validationResponse', headers)
+          next()
+        } else {
+          next(new Error('invalid'))
+        }
+      } catch (error) {
+        console.error(error)
+      }
+    })
+  }
+
+  /**
+   * Receive emit requests from the client
+   * @param {*} event
+   * @param {*} data
+   */
+  emit (event, data) {
+    try {
+      // Validate request headers
+      const verified = validateAuthHeaders('test', data.headers, this.serverPrivateKey)
+      if (!verified) {
+        this.io.emit('message', {
+          status: 'error',
+          code: 'ERR_AUTHRITE_INVALID_SIGNATURE',
+          description: 'The server was unable to verify this Authrite request\'s message signature.'
+        })
+      } else {
+        console.log('Client message verified!')
+
+        // Create the response headers for client-side authentication
+        const headers = getAuthResponseHeaders(
+          this.serverPrivateKey,
+          data.headers['x-authrite-identity-key'],
+          data.headers['x-authrite-nonce'],
+          cryptononce.createNonce(this.serverPrivateKey),
+          'test'
+        )
+
+        // Send the server response to the client
+        this.io.emit('serverResponse', {
+          data,
+          headers
+        })
+      }
+    } catch (error) {
+      console.error(error)
+      // TODO: Figure out optimal socket server-side error handling
+    }
+  }
+
+  use (socket, next) {
+    this.io.use(socket, next)
+  }
+
+  on (event, callback) {
+    this.io.on(event, callback)
+  }
+}
+
 /**
  * Authrite express middleware for providing mutual authentication with a client
  * @param {object} config Configures the middleware with initial parameters
@@ -157,7 +254,7 @@ const middleware = (config = {}) => {
         return res.status(500).json({
           status: 'error',
           code: 'ERR_AUTHRITE_INIT_INTERNAL',
-          description: `An internal error occurred within the initial request handler of this server's Authrite middleware`
+          description: 'An internal error occurred within the initial request handler of this server\'s Authrite middleware'
         })
       }
     }
@@ -240,7 +337,7 @@ const middleware = (config = {}) => {
       const unsignedJson = res.json
       res.json = (json) => {
         try {
-          // NOTE: It may not be necessary to use a "signed" nonce here, and it 
+          // NOTE: It may not be necessary to use a "signed" nonce here, and it
           // may be more secure to use a pure - random nonce.
           const responseNonce = cryptononce.createNonce(config.serverPrivateKey)
           const derivedPrivateKey = getPaymentPrivateKey({
@@ -269,7 +366,6 @@ const middleware = (config = {}) => {
         }
       }
 
-
       let certificates
       try {
         certificates = JSON.parse(req.headers['x-authrite-certificates'])
@@ -280,8 +376,8 @@ const middleware = (config = {}) => {
           description: 'The server was unable to parse the value of the "X-Authrite-Certificates HTTP header. Ensure the value is a properly-formatted JSON array of certificates.'
         })
       }
-      for (let c in certificates) {
-        let cert = certificates[c]
+      for (const c in certificates) {
+        const cert = certificates[c]
         if (cert.subject !== req.headers['x-authrite-identity-key']) {
           return res.status(401).json({
             status: 'error',
@@ -342,11 +438,11 @@ const middleware = (config = {}) => {
       return res.status(500).json({
         status: 'error',
         code: 'ERR_AUTHRITE_MAIN_INTERNAL',
-        description: `An internal error occurred within the main request handler of this server's Authrite middleware`
+        description: 'An internal error occurred within the main request handler of this server\'s Authrite middleware'
       })
     }
     next()
   }
 }
 
-module.exports = { middleware }
+module.exports = { middleware, socket: (http, options) => { return new AuthSock(http, options) } }
