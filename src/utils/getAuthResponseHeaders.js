@@ -11,12 +11,22 @@ const { getPaymentPrivateKey } = require('sendover')
  * @param {boolean} initialRequest
  * @returns {object} - the required response headers for authentication
  */
-const getAuthResponseHeaders = ({ serverPrivateKey, clientPublicKey, clientNonce, responseNonce, messageToSign = 'test', initialResponse = false }) => {
+const getAuthResponseHeaders = ({
+  authrite,
+  messageType,
+  serverPrivateKey,
+  clientPublicKey,
+  clientNonce,
+  serverNonce,
+  messageToSign = 'test',
+  certificates,
+  requestedCertificates
+}) => {
   // Derive the signing private key
   const derivedPrivateKey = getPaymentPrivateKey({
     recipientPrivateKey: serverPrivateKey,
     senderPublicKey: clientPublicKey,
-    invoiceNumber: '2-authrite message signature-' + clientNonce + ' ' + responseNonce,
+    invoiceNumber: '2-authrite message signature-' + clientNonce + ' ' + serverNonce,
     returnType: 'hex'
   })
 
@@ -27,14 +37,26 @@ const getAuthResponseHeaders = ({ serverPrivateKey, clientPublicKey, clientNonce
   )
 
   // Construct the auth headers to send to the client
-  return {
-    'x-authrite': '0.1',
-    'x-message-type': initialResponse ? 'initialResponse' : 'response',
-    'x-authrite-identity-key': new bsv.PrivateKey(serverPrivateKey).publicKey.toString('hex'),
-    'x-authrite-nonce': responseNonce,
-    'x-authrite-yournonce': clientNonce,
-    'x-authrite-certificates': '[]', // ?
-    'x-authrite-signature': responseSignature.toString()
+  if (messageType === 'initialResponse') {
+    return {
+      authrite,
+      messageType,
+      identityKey: new bsv.PrivateKey(serverPrivateKey).publicKey.toString('hex'),
+      nonce: serverNonce,
+      certificates,
+      requestedCertificates,
+      signature: responseSignature.toString()
+    }
+  } else {
+    return {
+      'x-authrite': authrite,
+      'x-message-type': messageType,
+      'x-authrite-identity-key': new bsv.PrivateKey(serverPrivateKey).publicKey.toString('hex'),
+      'x-authrite-nonce': serverNonce,
+      'x-authrite-yournonce': clientNonce,
+      'x-authrite-certificates': '[]', // TODO: support / test
+      'x-authrite-signature': responseSignature.toString()
+    }
   }
 }
 module.exports = getAuthResponseHeaders

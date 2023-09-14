@@ -31,14 +31,17 @@ class AuthSock {
           const message = clientNonce + this.serverNonce
 
           // Get response headers for authentication
-          const headers = getAuthResponseHeaders(
-            this.serverPrivateKey,
-            this.clientPublicKey,
+          const headers = getAuthResponseHeaders({
+            authrite: AUTHRITE_VERSION,
+            messageType: 'initialResponse',
+            serverPrivateKey: this.serverPrivateKey,
+            clientPublicKey: this.clientPublicKey,
             clientNonce,
-            this.serverNonce,
-            message,
-            true
-          )
+            serverNonce: this.serverNonce,
+            messageToSign: message,
+            certificates: [],
+            requestedCertificates: [] // TODO Add support
+          })
           // TODO: catch errors from above
 
           // Send the initial request response to the client
@@ -72,13 +75,17 @@ class AuthSock {
         console.log('Client message verified!')
 
         // Create the response headers for client-side authentication
-        const headers = getAuthResponseHeaders(
-          this.serverPrivateKey,
-          data.headers['x-authrite-identity-key'],
-          data.headers['x-authrite-nonce'],
-          cryptononce.createNonce(this.serverPrivateKey),
-          'test'
-        )
+        const headers = getAuthResponseHeaders({
+          authrite: AUTHRITE_VERSION,
+          messageType: 'response',
+          serverPrivateKey: this.serverPrivateKey,
+          clientPublicKey: data.headers['x-authrite-identity-key'],
+          clientNonce: data.headers['x-authrite-nonce'],
+          serverNonce: cryptononce.createNonce(this.serverPrivateKey), // ?
+          messageToSign: 'test',
+          certificates: [],
+          requestedCertificates: [] // TODO Add support
+        })
 
         // Send the server response to the client
         this.io.emit('serverResponse', {
@@ -232,12 +239,15 @@ const middleware = (config = {}) => {
 
         // Get auth headers to send back to the client
         return res.status(200).json(getAuthResponseHeaders({
+          authrite: AUTHRITE_VERSION,
+          messageType: 'initialResponse',
           serverPrivateKey: config.serverPrivateKey,
           clientPublicKey: req.body.identityKey,
           clientNonce: req.body.nonce,
-          responseNonce: serverNonce,
+          serverNonce,
           messageToSign: message,
-          initialResponse: true
+          certificates: [],
+          requestedCertificates: config.requestedCertificates
         }))
       } catch (error) {
         console.error(error)
