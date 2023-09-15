@@ -14,6 +14,7 @@ class AuthSock {
   constructor (http, options) {
     // Initialize necessary server properties
     this.socket = require('socket.io')(http, options)
+    this.broadcast = this.socket.broadcast
     this.serverPrivateKey = options.serverPrivateKey
     this.serverNonce = cryptononce.createNonce(this.serverPrivateKey)
 
@@ -21,37 +22,108 @@ class AuthSock {
      * Configure web sockets initial connection middleware
      */
     this.socket.use((socket, next) => {
-      try {
-        if (socket.request.headers['x-authrite'] === AUTHRITE_VERSION) {
-          // Get initial request params
-          this.clientPublicKey = socket.request.headers['x-authrite-identity-key']
-          this.clientNonce = socket.request.headers['x-authrite-nonce']
-          const message = this.clientNonce + this.serverNonce
-
-          // Get response headers for authentication
-          // TODO: consider if an error is thrown, what should be the response.
-          // Connection terminated?
-          const headers = getAuthResponseHeaders({
-            authrite: AUTHRITE_VERSION,
-            messageType: 'initialResponse',
-            serverPrivateKey: this.serverPrivateKey,
-            clientPublicKey: this.clientPublicKey,
-            clientNonce: this.clientNonce,
-            serverNonce: this.serverNonce,
-            messageToSign: message,
-            certificates: [],
-            requestedCertificates: socket.request.headers['x-authrite-requested-certificates']
-          })
-          // Send the initial request response to the client
-          socket.emit('validationResponse', headers)
-          next()
-        } else {
-          next(new Error('invalid'))
-        }
-      } catch (error) {
-        console.error(error)
-      }
+      this.setAuthenticationMiddleware(socket, next)
     })
+  }
+
+  /**
+   * Retrieves the unique identifier for the socket connection
+   * @returns {string} - The socket ID
+   */
+  get id () {
+    return this.socket.id
+  }
+
+  /**
+   * Retrieves the list of rooms that the socket is currently in
+   * @returns {Set<string>} - A set containing the names of the rooms
+   */
+  get rooms () {
+    return this.socket.rooms
+  }
+
+  /**
+   * Retrieves information about the initial handshake when the socket connection was established
+   * @returns {Object} - Handshake information including headers, address, secure, etc.
+   */
+  get handshake () {
+    return this.socket.handshake
+  }
+
+  setAuthenticationMiddleware (socket, next) {
+    try {
+      if (socket.request.headers['x-authrite'] === AUTHRITE_VERSION) {
+        // Get initial request params
+        this.clientPublicKey = socket.request.headers['x-authrite-identity-key']
+        this.clientNonce = socket.request.headers['x-authrite-nonce']
+        const message = this.clientNonce + this.serverNonce
+
+        // Get response headers for authentication
+        // TODO: consider if an error is thrown, what should be the response.
+        // Connection terminated?
+        const headers = getAuthResponseHeaders({
+          authrite: AUTHRITE_VERSION,
+          messageType: 'initialResponse',
+          serverPrivateKey: this.serverPrivateKey,
+          clientPublicKey: this.clientPublicKey,
+          clientNonce: this.clientNonce,
+          serverNonce: this.serverNonce,
+          messageToSign: message,
+          certificates: [],
+          requestedCertificates: socket.request.headers['x-authrite-requested-certificates']
+        })
+        // Send the initial request response to the client
+        socket.emit('validationResponse', headers)
+        next()
+      } else {
+        next(new Error('invalid'))
+      }
+    } catch (error) {
+      console.error(error)
+    }
+  }
+
+  /**
+   * Registers a middleware function to intercept events on the socket
+   * @param {Socket} socket - The socket object to apply the middleware to
+   * @param {function} next - The callback function to call after the middleware completes
+   */
+  use (socket, next) {
+  // TODO: Test this function
+    this.setAuthenticationMiddleware(socket, next)
+    this.socket.use(socket, next)
+  }
+
+  /**
+   * Joins the socket to a specified room
+   * @param {string} room - The name of the room to join
+   */
+  join (room) {
+    this.socket.join(room)
+  }
+
+  /**
+   * Leaves a specified room
+   * @param {string} room - The name of the room to leave
+   */
+  leave (room) {
+    this.socket.leave(room)
+  }
+
+  /**
+   * Sends a message to all clients in a specified room
+   * @param {string} room - The name of the room to send the message to
+   * @returns {Socket} - A reference to the socket
+   */
+  to (room) {
+    return this.socket.to(room)
+  }
+
+  /**
+   * Disconnects the socket from the server
+   */
+  disconnect () {
+    this.socket.disconnect()
   }
 
   /**
@@ -69,7 +141,7 @@ class AuthSock {
         clientPublicKey: this.clientPublicKey,
         clientNonce: this.clientNonce,
         serverNonce: cryptononce.createNonce(this.serverPrivateKey),
-        messageToSign: data,
+        messageToSign: JSON.stringify(data),
         certificates: [],
         requestedCertificates: [] // TODO Add support
       })
@@ -83,15 +155,6 @@ class AuthSock {
       console.error(error)
       // TODO: Figure out optimal socket server-side error handling
     }
-  }
-
-  /**
-   * Allow custom middleware to be configured
-   * @param {*} socket
-   * @param {*} next
-   */
-  use (socket, next) {
-    this.socket.use(socket, next)
   }
 
   /**
@@ -126,7 +189,7 @@ class AuthSock {
         }
 
         // Define a new wrapped socket.emit function
-        socket.emit = function (event, data) {
+        socket.emit = function (event, ...args) {
           // Modify the data or perform any custom actions here
           const headers = getAuthResponseHeaders({
             authrite: AUTHRITE_VERSION,
@@ -135,13 +198,13 @@ class AuthSock {
             clientPublicKey: authSockInstance.clientPublicKey,
             clientNonce: authSockInstance.clientNonce,
             serverNonce: cryptononce.createNonce(authSockInstance.serverPrivateKey),
-            messageToSign: JSON.stringify(data),
+            messageToSign: JSON.stringify(...args),
             certificates: [],
             requestedCertificates: [] // TODO Add support
           })
           // Invoke the wrapped callback
           originalEmit.call(this, event, {
-            data,
+            ...args,
             headers
           })
         }
