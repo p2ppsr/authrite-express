@@ -177,6 +177,11 @@ class AuthSock {
           // Define a custom wrapped callback to authenticate headers provided
           const wrappedInnerCallback = (body) => {
             // Call the helper auth function
+            // Update the client nonce to be the last request nonce used
+            // This allows future requests to the client to succeed
+            if (body.headers) {
+              authSockInstance.clientNonce = body.headers['x-authrite-nonce']
+            }
             authSockInstance.authenticateRequest({
               messageToSign: JSON.stringify(body.data),
               authHeaders: body.headers
@@ -189,7 +194,7 @@ class AuthSock {
         }
 
         // Define a new wrapped socket.emit function
-        socket.emit = function (event, ...args) {
+        socket.emit = function (event, data) {
           // Modify the data or perform any custom actions here
           const headers = getAuthResponseHeaders({
             authrite: AUTHRITE_VERSION,
@@ -198,13 +203,13 @@ class AuthSock {
             clientPublicKey: authSockInstance.clientPublicKey,
             clientNonce: authSockInstance.clientNonce,
             serverNonce: cryptononce.createNonce(authSockInstance.serverPrivateKey),
-            messageToSign: JSON.stringify(...args),
+            messageToSign: JSON.stringify(data),
             certificates: [],
             requestedCertificates: [] // TODO Add support
           })
           // Invoke the wrapped callback
           originalEmit.call(this, event, {
-            ...args,
+            data,
             headers
           })
         }
