@@ -13,37 +13,35 @@ const validateAuthHeaders = require('./utils/validateAuthHeaders')
 class AuthSock {
   constructor (http, options) {
     // Initialize necessary server properties
-    this.io = require('socket.io')(http, options)
-    this.serverPrivateKey = options.serverPrivateKey // TODO: Consider access controls
-    this.serverPublicKey = new bsv.PrivateKey(this.serverPrivateKey).publicKey.toString('hex')
+    this.socket = require('socket.io')(http, options)
+    this.serverPrivateKey = options.serverPrivateKey
     this.serverNonce = cryptononce.createNonce(this.serverPrivateKey)
 
     /**
      * Configure web sockets initial connection middleware
      */
-    this.io.use((socket, next) => {
+    this.socket.use((socket, next) => {
       try {
-        console.log(socket.request.headers)
-        if (socket.request.headers['x-authrite'] === '0.1') {
-        // Get initial request params
+        if (socket.request.headers['x-authrite'] === AUTHRITE_VERSION) {
+          // Get initial request params
           this.clientPublicKey = socket.request.headers['x-authrite-identity-key']
-          const clientNonce = socket.request.headers['x-authrite-nonce']
-          const message = clientNonce + this.serverNonce
+          this.clientNonce = socket.request.headers['x-authrite-nonce']
+          const message = this.clientNonce + this.serverNonce
 
           // Get response headers for authentication
+          // TODO: consider if an error is thrown, what should be the response.
+          // Connection terminated?
           const headers = getAuthResponseHeaders({
             authrite: AUTHRITE_VERSION,
             messageType: 'initialResponse',
             serverPrivateKey: this.serverPrivateKey,
             clientPublicKey: this.clientPublicKey,
-            clientNonce,
+            clientNonce: this.clientNonce,
             serverNonce: this.serverNonce,
             messageToSign: message,
             certificates: [],
-            requestedCertificates: [] // TODO Add support
+            requestedCertificates: socket.request.headers['x-authrite-requested-certificates']
           })
-          // TODO: catch errors from above
-
           // Send the initial request response to the client
           socket.emit('validationResponse', headers)
           next()
@@ -57,54 +55,127 @@ class AuthSock {
   }
 
   /**
-   * Receive emit requests from the client
+   * Emits a message to the client
    * @param {*} event
    * @param {*} data
    */
   emit (event, data) {
     try {
-      // Validate request headers
-      const verified = validateAuthHeaders('test', data.headers, this.serverPrivateKey)
-      if (!verified) {
-        this.io.emit('message', {
-          status: 'error',
-          code: 'ERR_AUTHRITE_INVALID_SIGNATURE',
-          description: 'The server was unable to verify this Authrite request\'s message signature.'
-        })
-      } else {
-        console.log('Client message verified!')
+      // Get auth headers to send to client
+      const headers = getAuthResponseHeaders({
+        authrite: AUTHRITE_VERSION,
+        messageType: 'response',
+        serverPrivateKey: this.serverPrivateKey,
+        clientPublicKey: this.clientPublicKey,
+        clientNonce: this.clientNonce,
+        serverNonce: cryptononce.createNonce(this.serverPrivateKey),
+        messageToSign: data,
+        certificates: [],
+        requestedCertificates: [] // TODO Add support
+      })
 
-        // Create the response headers for client-side authentication
-        const headers = getAuthResponseHeaders({
-          authrite: AUTHRITE_VERSION,
-          messageType: 'response',
-          serverPrivateKey: this.serverPrivateKey,
-          clientPublicKey: data.headers['x-authrite-identity-key'],
-          clientNonce: data.headers['x-authrite-nonce'],
-          serverNonce: cryptononce.createNonce(this.serverPrivateKey), // ?
-          messageToSign: 'test',
-          certificates: [],
-          requestedCertificates: [] // TODO Add support
-        })
-
-        // Send the server response to the client
-        this.io.emit('serverResponse', {
-          data,
-          headers
-        })
-      }
+      // Send the initial data + auth headers
+      this.socket.emit(event, {
+        headers,
+        data
+      })
     } catch (error) {
       console.error(error)
       // TODO: Figure out optimal socket server-side error handling
     }
   }
 
+  /**
+   * Allow custom middleware to be configured
+   * @param {*} socket
+   * @param {*} next
+   */
   use (socket, next) {
-    this.io.use(socket, next)
+    this.socket.use(socket, next)
   }
 
+  /**
+   * Custom configured web sockets on method
+   * @param {*} event
+   * @param {function} callback
+   */
   on (event, callback) {
-    this.io.on(event, callback)
+    // Keep track of the current instance
+    const authSockInstance = this
+    if (typeof callback === 'function') {
+      // Construct a callback which wraps the custom callback
+      const modifiedCallback = (socket) => {
+        // Keep track of the original socket on function
+        const originalOn = socket.on
+        const originalEmit = socket.emit
+
+        // Define a new socket on function for any inner on event callbacks defined
+        socket.on = function (event, innerCallback) {
+          // Define a custom wrapped callback to authenticate headers provided
+          const wrappedInnerCallback = (body) => {
+            // Call the helper auth function
+            authSockInstance.authenticateRequest({
+              messageToSign: JSON.stringify(body.data),
+              authHeaders: body.headers
+            })
+            // Invoke the expected inner callback function
+            innerCallback(body.data)
+          }
+          // Invoke the wrapped callback
+          originalOn.call(this, event, wrappedInnerCallback)
+        }
+
+        // Define a new wrapped socket.emit function
+        socket.emit = function (event, data) {
+          // Modify the data or perform any custom actions here
+          const headers = getAuthResponseHeaders({
+            authrite: AUTHRITE_VERSION,
+            messageType: 'response',
+            serverPrivateKey: authSockInstance.serverPrivateKey,
+            clientPublicKey: authSockInstance.clientPublicKey,
+            clientNonce: authSockInstance.clientNonce,
+            serverNonce: cryptononce.createNonce(authSockInstance.serverPrivateKey),
+            messageToSign: JSON.stringify(data),
+            certificates: [],
+            requestedCertificates: [] // TODO Add support
+          })
+          // Invoke the wrapped callback
+          originalEmit.call(this, event, {
+            data,
+            headers
+          })
+        }
+        // Call the original callback function with the modified socket
+        callback(socket)
+      }
+
+      this.socket.on(event, modifiedCallback)
+    } else {
+      this.socket.on(event, callback)
+    }
+  }
+
+  authenticateRequest ({ messageToSign, authHeaders }) {
+    try {
+      // Validate request headers
+      const verified = validateAuthHeaders(messageToSign, authHeaders, this.serverPrivateKey)
+      if (!verified) {
+        // TODO: Define standard for sending error notifications...?
+        this.socket.emit('serverResponse', {
+          status: 'error',
+          code: 'ERR_AUTHRITE_INVALID_SIGNATURE',
+          description: 'The server was unable to verify this Authrite request\'s message signature.'
+        })
+      } else {
+        // Update the client nonce to be the last request nonce used
+        // This allows future requests to the client to succeed
+        this.clientNonce = authHeaders['x-authrite-nonce']
+        console.log('Client message verified!')
+      }
+    } catch (error) {
+      console.error(error)
+      // TODO: Figure out optimal socket server-side error handling
+    }
   }
 }
 
