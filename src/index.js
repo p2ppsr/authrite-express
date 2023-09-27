@@ -1,11 +1,11 @@
 const bsv = require('babbage-bsv')
 const { getPaymentAddress, getPaymentPrivateKey } = require('sendover')
 const cryptononce = require('cryptononce')
-const authriteUtils = require('authrite-utils')
-const AUTHRITE_VERSION = '0.1'
+const AUTHRITE_VERSION = '0.2'
 
 const getAuthResponseHeaders = require('./utils/getAuthResponseHeaders')
 const validateAuthHeaders = require('./utils/validateAuthHeaders')
+const validateCertificates = require('./utils/validateCertificates')
 
 /**
  * Provides server-side access to Authrite protected sockets
@@ -19,16 +19,12 @@ class AuthSock {
 
     // Validate required server private key
     if (!options.serverPrivateKey || typeof options.serverPrivateKey !== 'string') {
-      const e = new Error(
-        'Authrite protected sockets require a valid serverPrivateKey string in its configuration object'
-      )
+      const e = new Error('Authrite protected sockets require a valid serverPrivateKey string in its configuration object')
       e.code = 'ERR_NO_PRIVKEY'
       throw e
     }
     if (options.serverPrivateKey.length !== 64) {
-      const e = new Error(
-        'Authrite protected sockets require the serverPrivateKey to be 64 hex digits'
-      )
+      const e = new Error('Authrite protected sockets require the serverPrivateKey to be 64 hex digits')
       e.code = 'ERR_BAD_PRIVKEY'
       throw e
     }
@@ -42,23 +38,17 @@ class AuthSock {
     }
     // Validate requested certificate options
     if (typeof this.options.requestedCertificates !== 'object') {
-      const e = new Error(
-        'Authrite protected sockets require that requestedCertificates be provided as an object with keys "certifiers" and "types"'
-      )
+      const e = new Error('Authrite protected sockets require that requestedCertificates be provided as an object with keys "certifiers" and "types"')
       e.code = 'ERR_INVALID_REQUESTED_CERTS'
       throw e
     }
     if (!Array.isArray(this.options.requestedCertificates.certifiers)) {
-      const e = new Error(
-        'Authrite protected sockets require that requestedCertificates.certifiers be an array of trusted certifier public keys'
-      )
+      const e = new Error('Authrite protected sockets require that requestedCertificates.certifiers be an array of trusted certifier public keys')
       e.code = 'ERR_INVALID_REQUESTED_CERT_CERTIFIERS'
       throw e
     }
     if (typeof this.options.requestedCertificates.types !== 'object') {
-      const e = new Error(
-        'Authrite protected sockets require that requestedCertificates.types be an object whose keys are trusted certificate type IDs and whose values are arrays of fields to request from certificate holders who present a certificate of the given type'
-      )
+      const e = new Error('Authrite protected sockets require that requestedCertificates.types be an object whose keys are trusted certificate type IDs and whose values are arrays of fields to request from certificate holders who present a certificate of the given type')
       e.code = 'ERR_INVALID_REQUESTED_CERT_TYPES'
       throw e
     }
@@ -108,7 +98,6 @@ class AuthSock {
         // Return error to client
         const error = new Error('The Authrite initial request body must contain an "authrite" property stipulating which version to use.')
         error.code = 'ERR_MISSING_AUTHRITE_VERSION'
-
         next(error)
         return
       }
@@ -116,7 +105,6 @@ class AuthSock {
         // Return error to client
         const error = new Error(`The client and server do not share a common Authrite version. This server is configured for version "${AUTHRITE_VERSION}", but the client requested version "${socket.request.headers['x-authrite']}" instead.`)
         error.code = 'ERR_AUTHRITE_VERSION_MISMATCH'
-
         next(error)
         return
       }
@@ -125,15 +113,14 @@ class AuthSock {
         // Return error to client
         const error = new Error('The Authrite initial request is missing required fields from its JSON request body object. The required fields are: "authrite", "identityKey", and "nonce"')
         error.code = 'ERR_AUTHRITE_MISSING_INITIAL_REQUEST_PARAMS'
-
         next(error)
         return
       }
 
       // Get initial request params
       this.clientPublicKey = socket.request.headers['x-authrite-identity-key']
-      this.clientNonce = socket.request.headers['x-authrite-nonce']
-      const message = this.clientNonce + this.serverNonce
+      this.clientInitialNonce = socket.request.headers['x-authrite-nonce']
+      const message = this.clientInitialNonce + this.serverNonce
 
       // Get response headers for authentication
       const headers = getAuthResponseHeaders({
@@ -141,22 +128,21 @@ class AuthSock {
         messageType: 'initialResponse',
         serverPrivateKey: this.serverPrivateKey,
         clientPublicKey: this.clientPublicKey,
-        clientNonce: this.clientNonce,
+        clientNonce: this.clientInitialNonce,
         serverNonce: this.serverNonce,
         messageToSign: message,
         certificates: [],
-        requestedCertificates: socket.request.headers['x-authrite-requested-certificates']
+        requestedCertificates: this.options.requestedCertificates
       })
       // Send the initial request response to the client
       socket.emit('validationResponse', headers)
       next()
     } catch (error) {
-      // If an error occurs, return the error to the client
-      // Note: any security implications of verbose errors in this context?
       console.error(error)
-      const err = new Error(error.message || 'An internal error occurred!')
-      error.code = error.code || 'ERR_INTERNAL'
+      const err = new Error('An internal error occurred within the initial request handler of this server\'s Authrite socket middleware')
+      error.code = 'ERR_AUTHRITE_INIT_INTERNAL'
 
+      // Return the error to the client
       next(err)
     }
   }
@@ -217,11 +203,11 @@ class AuthSock {
         messageType: 'response',
         serverPrivateKey: this.serverPrivateKey,
         clientPublicKey: this.clientPublicKey,
-        clientNonce: this.clientNonce,
+        clientNonce: this.clientInitialNonce,
         serverNonce: cryptononce.createNonce(this.serverPrivateKey),
         messageToSign: JSON.stringify(data),
         certificates: [],
-        requestedCertificates: [] // TODO Add support
+        requestedCertificates: this.options.requestedCertificates
       })
 
       // Send the initial data + auth headers
@@ -230,8 +216,8 @@ class AuthSock {
         data
       })
     } catch (error) {
+      // Just log to the server because the message never reached the client
       console.error(error)
-      // TODO: Figure out optimal socket server-side error handling
     }
   }
 
@@ -253,19 +239,18 @@ class AuthSock {
         // Define a new socket on function for any inner on event callbacks defined
         socket.on = function (event, innerCallback) {
           // Define a custom wrapped callback to authenticate headers provided
-          const wrappedInnerCallback = (body) => {
+          const wrappedInnerCallback = async (body) => {
             // Call the helper auth function
-            // Update the client nonce to be the last request nonce used
-            // This allows future requests to the client to succeed
-            if (body.headers) {
-              authSockInstance.clientNonce = body.headers['x-authrite-nonce']
-            }
-            authSockInstance.authenticateRequest({
+            // TODO: test impact of async function here
+            const authenticated = await authSockInstance.authenticateRequest({
+              socket,
               messageToSign: JSON.stringify(body.data),
               authHeaders: body.headers
             })
+            if (authenticated) {
             // Invoke the expected inner callback function
-            innerCallback(body.data)
+              innerCallback(body.data)
+            }
           }
           // Invoke the wrapped callback
           originalOn.call(this, event, wrappedInnerCallback)
@@ -279,11 +264,11 @@ class AuthSock {
             messageType: 'response',
             serverPrivateKey: authSockInstance.serverPrivateKey,
             clientPublicKey: authSockInstance.clientPublicKey,
-            clientNonce: authSockInstance.clientNonce,
+            clientNonce: authSockInstance.clientInitialNonce,
             serverNonce: cryptononce.createNonce(authSockInstance.serverPrivateKey),
             messageToSign: JSON.stringify(data),
             certificates: [],
-            requestedCertificates: [] // TODO Add support
+            requestedCertificates: this.options.requestedCertificates
           })
           // Invoke the wrapped callback
           originalEmit.call(this, event, {
@@ -301,27 +286,110 @@ class AuthSock {
     }
   }
 
-  authenticateRequest ({ messageToSign, authHeaders }) {
+  async authenticateRequest ({ socket, messageToSign, authHeaders }) {
     try {
+      // Make sure the required headers are provided
+      if (!authHeaders['x-authrite']) {
+        // Return an error to the client
+        const error = {
+          status: 'error',
+          code: 'ERR_MISSING_AUTHRITE_HEADER',
+          description: 'This route is protected by Authrite. All requests to Authrite-protected routes must contain an "X-Authrite" HTTP header stipulating which Authrite version to use. Ensure that this header is present, and that your server\'s CORS configuration allows the Authrite headers.'
+        }
+        socket.emit('error', error)
+        return false
+      }
+      if (
+        !authHeaders['x-authrite'] ||
+        !authHeaders['x-authrite-identity-key'] ||
+        !authHeaders['x-authrite-nonce'] ||
+        !authHeaders['x-authrite-yournonce'] ||
+        !authHeaders['x-authrite-signature'] ||
+        !authHeaders['x-authrite-certificates']
+      ) {
+        // Return an error to the client
+        const error = {
+          status: 'error',
+          code: 'ERR_AUTHRITE_MISSING_HEADERS',
+          description: 'This route is protected by Authrite. Ensure that the following Authrite HTTP headers are present, and that your server\'s CORS policy is configured to allow them: "X-Authrite", "X-Authrite-Identity-Key", "X-Authrite-Nonce", "X-Authrite-YourNonce", "X-Authrite-Signature", "X-Authrite-Certificates".'
+        }
+        socket.emit('error', error)
+        return false
+      }
+
+      if (authHeaders['x-authrite'] !== AUTHRITE_VERSION) {
+        // Return an error to the client
+        const error = {
+          status: 'error',
+          code: 'ERR_AUTHRITE_VERSION_MISMATCH',
+          description: `The client and server do not share a common Authrite version. This server is configured for version "${AUTHRITE_VERSION}", but the client requested version "${req.headers['x-authrite']}" instead.`,
+          serverVersion: AUTHRITE_VERSION,
+          clientVersion: authHeaders['x-authrite']
+        }
+        socket.emit('error', error)
+        return false
+      }
+
+      // Make sure the client provides a valid server initial nonce
+      const validNonce = cryptononce.verifyNonce(
+        authHeaders['x-authrite-yournonce'],
+        this.serverPrivateKey
+      )
+      if (!validNonce) {
+        // Return an error to the client
+        const error = {
+          status: 'error',
+          code: 'ERR_AUTHRITE_BAD_SERVER_NONCE',
+          description: 'The server was unable to verify that the value given by the "X-Authrite-YourNonce" HTTP header was previously generated. Ensure the value of this header is a nonce returned from a previous Authrite initial response.'
+        }
+        socket.emit('error', error)
+        return false
+      }
+
       // Validate request headers
-      const verified = validateAuthHeaders(messageToSign, authHeaders, this.serverPrivateKey)
+      const verified = validateAuthHeaders({ messageToSign, authHeaders, serverPrivateKey: this.serverPrivateKey })
       if (!verified) {
-        // TODO: Define standard for sending error notifications...?
-        // TODO: Find which client?
-        this.socket.emit('validationResponse', {
+        // Return an error to the client
+        const error = {
           status: 'error',
           code: 'ERR_AUTHRITE_INVALID_SIGNATURE',
           description: 'The server was unable to verify this Authrite request\'s message signature.'
-        })
+        }
+        socket.emit('error', error)
+        return false
       } else {
-        // Update the client nonce to be the last request nonce used
-        // This allows future requests to the client to succeed
-        this.clientNonce = authHeaders['x-authrite-nonce']
+        // Note: Should this validation be moved to the top?
+        let certificates
+        try {
+          certificates = JSON.parse(authHeaders['x-authrite-certificates'])
+        } catch (e) {
+          const error = {
+            status: 'error',
+            code: 'ERR_AUTHRITE_BAD_CERTS',
+            description: 'The server was unable to parse the value of the "X-Authrite-Certificates HTTP header. Ensure the value is a properly-formatted JSON array of certificates.'
+          }
+          socket.emit('error', error)
+          return false
+        }
+
+        // Validate each certificate provided
+        const response = await validateCertificates({
+          serverPrivateKey: this.serverPrivateKey,
+          identityKey: authHeaders['x-authrite-identity-key'],
+          certificates
+        })
+        if (response.status === 'error') {
+          socket.emit('error', response)
+          return false
+        }
+
         console.log('Client message verified!')
+        return true
       }
     } catch (error) {
       console.error(error)
-      // TODO: Figure out optimal socket server-side error handling
+      socket.emit('error', error)
+      return false
     }
   }
 }
@@ -594,55 +662,18 @@ const middleware = (config = {}) => {
           description: 'The server was unable to parse the value of the "X-Authrite-Certificates HTTP header. Ensure the value is a properly-formatted JSON array of certificates.'
         })
       }
-      for (const c in certificates) {
-        const cert = certificates[c]
-        if (cert.subject !== req.headers['x-authrite-identity-key']) {
-          return res.status(401).json({
-            status: 'error',
-            code: 'ERR_INVALID_SUBJECT',
-            description: `The subject of one of your certificates ("${cert.subject}") is not the same as the request sender ("${req.headers['x-authrite-identity-key']}").`,
-            identityKey: req.headers['x-authrite-identity-key'],
-            certificateSubject: cert.subject
-          })
-        }
 
-        // Check valid signature
-        try {
-          authriteUtils.verifyCertificateSignature(cert)
-        } catch (err) {
-          if (err.code && err.code.startsWith('ERR_AUTHRITE')) {
-            return res.status(401).json({
-              status: 'error',
-              code: err.code,
-              description: err.message
-            })
-          } else {
-            throw e
-          }
-        }
-
-        // Check encrypted fields and decrypt them
-        let decryptedFields = {}
-        try {
-          decryptedFields = await authriteUtils.decryptCertificateFields(
-            cert,
-            cert.keyring,
-            config.serverPrivateKey
-          )
-        } catch (err) {
-          return res.status(401).json({
-            status: 'error',
-            code: 'ERR_DECRYPTION_FAILED',
-            description: 'Could not decrypt certificate fields'
-          })
-        }
-
-        certificates[c] = {
-          ...cert,
-          decryptedFields
-        }
+      // Validate each certificate provided
+      const response = await validateCertificates({
+        serverPrivateKey: this.serverPrivateKey,
+        identityKey: req.headers['x-authrite-identity-key'],
+        certificates
+      })
+      if (response.status === 'error') {
+        return res.status(401).json(response)
       }
-      // Compress evil uncompressed public keys
+
+      // Compress deprecated uncompressed public keys
       let identityKey = req.headers['x-authrite-identity-key']
       if (identityKey.length > 66) {
         identityKey = new bsv.PublicKey(identityKey).toCompressed().toString()
