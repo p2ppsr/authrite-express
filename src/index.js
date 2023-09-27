@@ -556,6 +556,7 @@ const middleware = (config = {}) => {
         !req.headers['x-authrite'] ||
         !req.headers['x-authrite-identity-key'] ||
         !req.headers['x-authrite-nonce'] ||
+        !req.headers['x-authrite-initialnonce'] ||
         !req.headers['x-authrite-yournonce'] ||
         !req.headers['x-authrite-signature'] ||
         !req.headers['x-authrite-certificates']
@@ -629,7 +630,7 @@ const middleware = (config = {}) => {
           const derivedPrivateKey = getPaymentPrivateKey({
             recipientPrivateKey: config.serverPrivateKey,
             senderPublicKey: req.headers['x-authrite-identity-key'],
-            invoiceNumber: '2-authrite message signature-' + req.headers['x-authrite-nonce'] + ' ' + responseNonce,
+            invoiceNumber: '2-authrite message signature-' + req.headers['x-authrite-initialnonce'] + ' ' + responseNonce,
             returnType: 'hex'
           })
           const responseSignature = bsv.crypto.ECDSA.sign(
