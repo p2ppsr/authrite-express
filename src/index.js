@@ -11,7 +11,7 @@ const validateCertificates = require('./utils/validateCertificates')
  * Provides server-side access to Authrite protected sockets
  */
 class AuthSock {
-  constructor (http, options) {
+  constructor (http, options = {}) {
     // Initialize necessary server properties
     this.socket = require('socket.io')(http, options)
     this.options = options
@@ -240,16 +240,20 @@ class AuthSock {
         socket.on = function (event, innerCallback) {
           // Define a custom wrapped callback to authenticate headers provided
           const wrappedInnerCallback = async (body) => {
-            // Call the helper auth function
-            // TODO: test impact of async function here
-            const authenticated = await authSockInstance.authenticateRequest({
-              socket,
-              messageToSign: JSON.stringify(body.data),
-              authHeaders: body.headers
-            })
-            if (authenticated) {
-            // Invoke the expected inner callback function
-              innerCallback(body.data)
+            // Make sure this isn't a system event such as a disconnect
+            if (body && body.data && body.headers) {
+              // Call the helper auth function
+              const authenticated = await authSockInstance.authenticateRequest({
+                socket,
+                messageToSign: JSON.stringify(body.data),
+                authHeaders: body.headers
+              })
+              if (authenticated) {
+              // Invoke the expected inner callback function
+                innerCallback(body.data)
+              }
+            } else {
+              innerCallback(body)
             }
           }
           // Invoke the wrapped callback
@@ -258,6 +262,11 @@ class AuthSock {
 
         // Define a new wrapped socket.emit function
         socket.emit = function (event, data) {
+          // Check if requested certificates has been provided
+          // let requestedCerts = []
+          // if (this.options && this.options.requestedCertificates) {
+          //   requestedCerts = this.options.requestedCertificates
+          // }
           // Modify the data or perform any custom actions here
           const headers = getAuthResponseHeaders({
             authrite: AUTHRITE_VERSION,
@@ -268,7 +277,7 @@ class AuthSock {
             serverNonce: cryptononce.createNonce(authSockInstance.serverPrivateKey),
             messageToSign: JSON.stringify(data),
             certificates: [],
-            requestedCertificates: this.options.requestedCertificates
+            requestedCertificates: authSockInstance.options.requestedCertificates
           })
           // Invoke the wrapped callback
           originalEmit.call(this, event, {
