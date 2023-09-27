@@ -15,6 +15,7 @@ class AuthSock {
     // Initialize necessary server properties
     this.socket = require('socket.io')(http, options)
     this.options = options
+    this.clients = {}
     this.broadcast = this.socket.broadcast
 
     // Validate required server private key
@@ -118,22 +119,27 @@ class AuthSock {
       }
 
       // Get initial request params
-      this.clientPublicKey = socket.request.headers['x-authrite-identity-key']
-      this.clientInitialNonce = socket.request.headers['x-authrite-nonce']
-      const message = this.clientInitialNonce + this.serverNonce
+      const message = socket.request.headers['x-authrite-nonce'] + this.serverNonce
 
       // Get response headers for authentication
       const headers = getAuthResponseHeaders({
         authrite: AUTHRITE_VERSION,
         messageType: 'initialResponse',
         serverPrivateKey: this.serverPrivateKey,
-        clientPublicKey: this.clientPublicKey,
-        clientNonce: this.clientInitialNonce,
+        clientPublicKey: socket.request.headers['x-authrite-identity-key'],
+        clientNonce: socket.request.headers['x-authrite-nonce'],
         serverNonce: this.serverNonce,
         messageToSign: message,
         certificates: [],
         requestedCertificates: this.options.requestedCertificates
       })
+
+      // Save the auth handshake information for this client for this session
+      this.clients[socket.id] = {
+        initialNonce: socket.request.headers['x-authrite-nonce'],
+        publicKey: socket.request.headers['x-authrite-identity-key']
+      }
+
       // Send the initial request response to the client
       socket.emit('validationResponse', headers)
       next()
@@ -196,28 +202,33 @@ class AuthSock {
    * @param {*} data
    */
   emit (event, data) {
-    try {
-      // Get auth headers to send to client
-      const headers = getAuthResponseHeaders({
-        authrite: AUTHRITE_VERSION,
-        messageType: 'response',
-        serverPrivateKey: this.serverPrivateKey,
-        clientPublicKey: this.clientPublicKey,
-        clientNonce: this.clientInitialNonce,
-        serverNonce: cryptononce.createNonce(this.serverPrivateKey),
-        messageToSign: JSON.stringify(data),
-        certificates: [],
-        requestedCertificates: this.options.requestedCertificates
-      })
+    for (const socketId in this.clients) {
+      try {
+        // Get auth headers to send to each client
+        const headers = getAuthResponseHeaders({
+          authrite: AUTHRITE_VERSION,
+          messageType: 'response',
+          serverPrivateKey: this.serverPrivateKey,
+          clientPublicKey: this.clients[socketId].publicKey,
+          clientNonce: this.clients[socketId].initialNonce,
+          serverNonce: cryptononce.createNonce(this.serverPrivateKey),
+          messageToSign: JSON.stringify(data),
+          certificates: [],
+          requestedCertificates: this.options.requestedCertificates
+        })
 
-      // Send the initial data + auth headers
-      this.socket.emit(event, {
-        headers,
-        data
-      })
-    } catch (error) {
-      // Just log to the server because the message never reached the client
-      console.error(error)
+        // Send the initial data + auth headers
+        // this.socket.emit(event, {
+        //   headers,
+        //   data
+        // })
+        this.socket.to(socketId).emit(event, {
+          headers,
+          data
+        })
+      } catch (error) {
+        console.error(error)
+      }
     }
   }
 
@@ -262,18 +273,16 @@ class AuthSock {
 
         // Define a new wrapped socket.emit function
         socket.emit = function (event, data) {
-          // Check if requested certificates has been provided
-          // let requestedCerts = []
-          // if (this.options && this.options.requestedCertificates) {
-          //   requestedCerts = this.options.requestedCertificates
-          // }
+          // Get the connect client
+          const client = authSockInstance.clients[socket.id]
+
           // Modify the data or perform any custom actions here
           const headers = getAuthResponseHeaders({
             authrite: AUTHRITE_VERSION,
             messageType: 'response',
             serverPrivateKey: authSockInstance.serverPrivateKey,
-            clientPublicKey: authSockInstance.clientPublicKey,
-            clientNonce: authSockInstance.clientInitialNonce,
+            clientPublicKey: client.publicKey,
+            clientNonce: client.initialNonce,
             serverNonce: cryptononce.createNonce(authSockInstance.serverPrivateKey),
             messageToSign: JSON.stringify(data),
             certificates: [],
