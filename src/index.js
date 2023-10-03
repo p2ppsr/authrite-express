@@ -312,7 +312,7 @@ class AuthSock {
         const error = {
           status: 'error',
           code: 'ERR_MISSING_AUTHRITE_HEADER',
-          description: 'This route is protected by Authrite. All requests to Authrite-protected routes must contain an "X-Authrite" HTTP header stipulating which Authrite version to use. Ensure that this header is present, and that your server\'s CORS configuration allows the Authrite headers.'
+          description: 'This route is protected by Authrite. All requests to Authrite-protected routes must contain an "x-authrite" HTTP header stipulating which Authrite version to use. Ensure that this header is present, and that your server\'s CORS configuration allows the Authrite headers.'
         }
         socket.emit('error', error)
         return false
@@ -329,7 +329,7 @@ class AuthSock {
         const error = {
           status: 'error',
           code: 'ERR_AUTHRITE_MISSING_HEADERS',
-          description: 'This route is protected by Authrite. Ensure that the following Authrite HTTP headers are present, and that your server\'s CORS policy is configured to allow them: "X-Authrite", "X-Authrite-Identity-Key", "X-Authrite-Nonce", "X-Authrite-YourNonce", "X-Authrite-Signature", "X-Authrite-Certificates".'
+          description: 'This route is protected by Authrite. Ensure that the following Authrite HTTP headers are present, and that your server\'s CORS policy is configured to allow them: "x-authrite", "x-authrite-identity-key", "x-authrite-nonce", "x-authrite-yournonce", "x-authrite-signature", "x-authrite-certificates".'
         }
         socket.emit('error', error)
         return false
@@ -340,7 +340,7 @@ class AuthSock {
         const error = {
           status: 'error',
           code: 'ERR_AUTHRITE_VERSION_MISMATCH',
-          description: `The client and server do not share a common Authrite version. This server is configured for version "${AUTHRITE_VERSION}", but the client requested version "${req.headers['x-authrite']}" instead.`,
+          description: `The client and server do not share a common Authrite version. This server is configured for version "${AUTHRITE_VERSION}", but the client requested version "${authHeaders['x-authrite']}" instead.`,
           serverVersion: AUTHRITE_VERSION,
           clientVersion: authHeaders['x-authrite']
         }
@@ -358,7 +358,7 @@ class AuthSock {
         const error = {
           status: 'error',
           code: 'ERR_AUTHRITE_BAD_SERVER_NONCE',
-          description: 'The server was unable to verify that the value given by the "X-Authrite-YourNonce" HTTP header was previously generated. Ensure the value of this header is a nonce returned from a previous Authrite initial response.'
+          description: 'The server was unable to verify that the value given by the "x-authrite-yournonce" HTTP header was previously generated. Ensure the value of this header is a nonce returned from a previous Authrite initial response.'
         }
         socket.emit('error', error)
         return false
@@ -384,7 +384,7 @@ class AuthSock {
           const error = {
             status: 'error',
             code: 'ERR_AUTHRITE_BAD_CERTS',
-            description: 'The server was unable to parse the value of the "X-Authrite-Certificates HTTP header. Ensure the value is a properly-formatted JSON array of certificates.'
+            description: 'The server was unable to parse the value of the "x-authrite-certificates HTTP header. Ensure the value is a properly-formatted JSON array of certificates.'
           }
           socket.emit('error', error)
           return false
@@ -567,7 +567,7 @@ const middleware = (config = {}) => {
         return res.status(401).json({
           status: 'error',
           code: 'ERR_MISSING_AUTHRITE_HEADER',
-          description: 'This route is protected by Authrite. All requests to Authrite-protected routes must contain an "X-Authrite" HTTP header stipulating which Authrite version to use. Ensure that this header is present, and that your server\'s CORS configuration allows the Authrite headers.'
+          description: 'This route is protected by Authrite. All requests to Authrite-protected routes must contain an "x-authrite" HTTP header stipulating which Authrite version to use. Ensure that this header is present, and that your server\'s CORS configuration allows the Authrite headers.'
         })
       }
       if (
@@ -582,7 +582,7 @@ const middleware = (config = {}) => {
         return res.status(400).json({
           status: 'error',
           code: 'ERR_AUTHRITE_MISSING_HEADERS',
-          description: 'This route is protected by Authrite. Ensure that the following Authrite HTTP headers are present, and that your server\'s CORS policy is configured to allow them: "X-Authrite", "X-Authrite-Identity-Key", "X-Authrite-Nonce", "X-Authrite-YourNonce", "X-Authrite-Signature", "X-Authrite-Certificates".'
+          description: 'This route is protected by Authrite. Ensure that the following Authrite HTTP headers are present, and that your server\'s CORS policy is configured to allow them: "x-authrite", "x-authrite-identity-key", "x-authrite-nonce", "x-authrite-yournonce", "x-authrite-signature", "x-authrite-certificates".'
         })
       }
       if (AUTHRITE_VERSION !== req.headers['x-authrite']) {
@@ -602,7 +602,7 @@ const middleware = (config = {}) => {
         return res.status(401).json({
           status: 'error',
           code: 'ERR_AUTHRITE_BAD_SERVER_NONCE',
-          description: 'The server was unable to verify that the value given by the "X-Authrite-YourNonce" HTTP header was previously generated. Ensure the value of this header is a nonce returned from a previous Authrite initial response.'
+          description: 'The server was unable to verify that the value given by the "x-authrite-yournonce" HTTP header was previously generated. Ensure the value of this header is a nonce returned from a previous Authrite initial response.'
         })
       }
       // Validate the client's request signature according to the specification
@@ -656,12 +656,12 @@ const middleware = (config = {}) => {
             bsv.PrivateKey.fromBuffer(Buffer.from(derivedPrivateKey, 'hex'))
           )
           res.set({
-            'X-Authrite': AUTHRITE_VERSION,
-            'X-Authrite-Identity-Key': bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
-            'X-Authrite-Nonce': responseNonce,
-            'X-Authrite-YourNonce': req.headers['x-authrite-nonce'],
-            'X-Authrite-Certificates': '[]',
-            'X-Authrite-Signature': responseSignature.toString()
+            'x-authrite': AUTHRITE_VERSION,
+            'x-authrite-identity-key': bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
+            'x-authrite-nonce': responseNonce,
+            'x-authrite-yournonce': req.headers['x-authrite-nonce'],
+            'x-authrite-certificates': '[]',
+            'x-authrite-signature': responseSignature.toString()
           })
         } catch (error) {
           console.error(error)
@@ -678,7 +678,7 @@ const middleware = (config = {}) => {
         return res.status(400).json({
           status: 'error',
           code: 'ERR_AUTHRITE_BAD_CERTS',
-          description: 'The server was unable to parse the value of the "X-Authrite-Certificates HTTP header. Ensure the value is a properly-formatted JSON array of certificates.'
+          description: 'The server was unable to parse the value of the "x-authrite-certificates" HTTP header. Ensure the value is a properly-formatted JSON array of certificates.'
         })
       }
 

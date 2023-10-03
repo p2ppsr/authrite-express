@@ -50,7 +50,7 @@ const getAuthResponseHeaders = ({
   } else {
     return {
       'x-authrite': authrite,
-      'x-message-type': messageType,
+      'x-message-type': messageType, // Note: not needed, right?
       'x-authrite-identity-key': new bsv.PrivateKey(serverPrivateKey).publicKey.toString('hex'),
       'x-authrite-nonce': serverNonce,
       'x-authrite-yournonce': clientNonce,
