@@ -48,7 +48,7 @@ const mockRes = {
 let mockReq, VALID
 const mockNext = () => {}
 
-describe('authrite', () => {
+describe('server-side authrite', () => {
   beforeEach(() => {
     VALID = {
       initialRequest: {

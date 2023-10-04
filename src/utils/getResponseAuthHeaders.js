@@ -4,14 +4,19 @@ const { getPaymentPrivateKey } = require('sendover')
 /**
  * Constructs the required server response headers for a given client
  * Supports initial request, and subsequent requests
- * @param {string} serverPrivateKey
- * @param {string} clientPublicKey
- * @param {string} clientNonce
- * @param {string} messageToSign
- * @param {boolean} initialRequest
+ * @param {object} obj - all params given in an object
+ * @param {string} obj.authrite - the version of authrite being used
+ * @param {string} obj.messageType - type of message to respond to
+ * @param {string} obj.serverPrivateKey - server private key to use to derive the signing private key
+ * @param {string} obj.clientPublicKey - public key of the sender
+ * @param {string} obj.clientNonce - random data provided by the client
+ * @param {string} obj.serverNonce - random data provided by the server
+ * @param {string} obj.messageToSign - expected message to be signed
+ * @param {Array} obj.certificates - provided certificates as requested by the client
+ * @param {Array} obj.requestedCertificates - a structure indicating which certificates the client should provide
  * @returns {object} - the required response headers for authentication
  */
-const getAuthResponseHeaders = ({
+const getResponseAuthHeaders = ({
   authrite,
   messageType,
   serverPrivateKey,
@@ -50,13 +55,12 @@ const getAuthResponseHeaders = ({
   } else {
     return {
       'x-authrite': authrite,
-      'x-message-type': messageType, // Note: not needed, right?
       'x-authrite-identity-key': new bsv.PrivateKey(serverPrivateKey).publicKey.toString('hex'),
       'x-authrite-nonce': serverNonce,
       'x-authrite-yournonce': clientNonce,
-      'x-authrite-certificates': '[]', // TODO: support / test
+      'x-authrite-certificates': JSON.stringify(certificates), // TODO: Validate expected certificate structure
       'x-authrite-signature': responseSignature.toString()
     }
   }
 }
-module.exports = getAuthResponseHeaders
+module.exports = getResponseAuthHeaders

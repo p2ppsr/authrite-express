@@ -3,7 +3,7 @@ const { getPaymentAddress, getPaymentPrivateKey } = require('sendover')
 const cryptononce = require('cryptononce')
 const AUTHRITE_VERSION = '0.2'
 
-const getAuthResponseHeaders = require('./utils/getAuthResponseHeaders')
+const getResponseAuthHeaders = require('./utils/getResponseAuthHeaders')
 const validateAuthHeaders = require('./utils/validateAuthHeaders')
 const validateCertificates = require('./utils/validateCertificates')
 
@@ -122,7 +122,7 @@ class AuthSock {
       const message = socket.request.headers['x-authrite-nonce'] + this.serverNonce
 
       // Get response headers for authentication
-      const headers = getAuthResponseHeaders({
+      const headers = getResponseAuthHeaders({
         authrite: AUTHRITE_VERSION,
         messageType: 'initialResponse',
         serverPrivateKey: this.serverPrivateKey,
@@ -205,7 +205,7 @@ class AuthSock {
     for (const socketId in this.clients) {
       try {
         // Get auth headers to send to each client
-        const headers = getAuthResponseHeaders({
+        const headers = getResponseAuthHeaders({
           authrite: AUTHRITE_VERSION,
           messageType: 'response',
           serverPrivateKey: this.serverPrivateKey,
@@ -277,7 +277,7 @@ class AuthSock {
           const client = authSockInstance.clients[socket.id]
 
           // Modify the data or perform any custom actions here
-          const headers = getAuthResponseHeaders({
+          const headers = getResponseAuthHeaders({
             authrite: AUTHRITE_VERSION,
             messageType: 'response',
             serverPrivateKey: authSockInstance.serverPrivateKey,
@@ -542,7 +542,7 @@ const middleware = (config = {}) => {
         const message = req.body.nonce + serverNonce
 
         // Get auth headers to send back to the client
-        return res.status(200).json(getAuthResponseHeaders({
+        return res.status(200).json(getResponseAuthHeaders({
           authrite: AUTHRITE_VERSION,
           messageType: 'initialResponse',
           serverPrivateKey: config.serverPrivateKey,

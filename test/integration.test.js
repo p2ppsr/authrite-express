@@ -347,3 +347,38 @@ describe('authrite socket client-server integration', () => {
     // TODO: resolve xhr poll error
   })
 })
+
+// describe('basic socket.io example', () => {
+//   beforeAll(async () => {
+//     await setupTestServer()
+//   })
+//   afterAll(() => {
+//     server.close()
+//   })
+//   afterEach(() => {
+//     jest.clearAllMocks()
+//   })
+//   test('should communicate', (done) => {
+//     // once connected, emit Hello World
+//     // ioServer.emit('echo', 'Hello World')
+//     // socket.once('echo', (message) => {
+//     //   // Check that the message matches
+//     //   expect(message).toBe('Hello World')
+//     //   done()
+//     // })
+//     // ioServer.on('connection', (mySocket) => {
+//     //   expect(mySocket).toBeDefined()
+//     // })
+//     expect('test').toEqual('test')
+//   })
+//   // test('should communicate with waiting for socket.io handshakes', (done) => {
+//   //   // // Emit sth from Client do Server
+//   //   // socket.emit('examlpe', 'some messages')
+//   //   // // Use timeout to wait for socket.io server handshakes
+//   //   // setTimeout(() => {
+//   //   //   // Put your server side expect() here
+//   //   //   done()
+//   //   // }, 50)
+//   //   expect(1).toEqual(1)
+//   // })
+// })

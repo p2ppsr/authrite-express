@@ -2,7 +2,7 @@ const bsv = require('babbage-bsv')
 const { getPaymentAddress } = require('sendover')
 
 /**
- *
+ * Used to validate client auth headers provided in a request
  * @param {object} obj - all params given in an object
  * @param {string} obj.messageToSign - the message signed when the signature was created
  * @param {object} obj.authHeaders - provided by the client for authentication
