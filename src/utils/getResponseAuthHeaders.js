@@ -24,14 +24,14 @@ const getResponseAuthHeaders = ({
   clientNonce,
   serverNonce,
   messageToSign = 'test',
-  certificates,
+  certificates = [],
   requestedCertificates
 }) => {
   // Derive the signing private key
   const derivedPrivateKey = getPaymentPrivateKey({
     recipientPrivateKey: serverPrivateKey,
     senderPublicKey: clientPublicKey,
-    invoiceNumber: '2-authrite message signature-' + clientNonce + ' ' + serverNonce,
+    invoiceNumber: `2-authrite message signature-${clientNonce} ${serverNonce}`,
     returnType: 'hex'
   })
 
@@ -58,7 +58,7 @@ const getResponseAuthHeaders = ({
       'x-authrite-identity-key': new bsv.PrivateKey(serverPrivateKey).publicKey.toString('hex'),
       'x-authrite-nonce': serverNonce,
       'x-authrite-yournonce': clientNonce,
-      'x-authrite-certificates': JSON.stringify(certificates), // TODO: Validate expected certificate structure
+      'x-authrite-certificates': JSON.stringify(certificates),
       'x-authrite-signature': responseSignature.toString()
     }
   }

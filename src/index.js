@@ -1,5 +1,4 @@
 const bsv = require('babbage-bsv')
-const { getPaymentAddress, getPaymentPrivateKey } = require('sendover')
 const cryptononce = require('cryptononce')
 const AUTHRITE_VERSION = '0.2'
 
@@ -218,10 +217,6 @@ class AuthSock {
         })
 
         // Send the initial data + auth headers
-        // this.socket.emit(event, {
-        //   headers,
-        //   data
-        // })
         this.socket.to(socketId).emit(event, {
           headers,
           data
@@ -304,6 +299,7 @@ class AuthSock {
     }
   }
 
+  // Helper function for authenticating the incoming request
   async authenticateRequest ({ socket, messageToSign, authHeaders }) {
     try {
       // Make sure the required headers are provided
@@ -312,7 +308,7 @@ class AuthSock {
         const error = {
           status: 'error',
           code: 'ERR_MISSING_AUTHRITE_HEADER',
-          description: 'This route is protected by Authrite. All requests to Authrite-protected routes must contain an "x-authrite" HTTP header stipulating which Authrite version to use. Ensure that this header is present, and that your server\'s CORS configuration allows the Authrite headers.'
+          description: 'This route is protected by Authrite. All requests to Authrite-protected routes must contain an "x-authrite" header stipulating which Authrite version to use. Ensure that this header is present, and that your server\'s CORS configuration allows the Authrite headers.'
         }
         socket.emit('error', error)
         return false
@@ -329,7 +325,7 @@ class AuthSock {
         const error = {
           status: 'error',
           code: 'ERR_AUTHRITE_MISSING_HEADERS',
-          description: 'This route is protected by Authrite. Ensure that the following Authrite HTTP headers are present, and that your server\'s CORS policy is configured to allow them: "x-authrite", "x-authrite-identity-key", "x-authrite-nonce", "x-authrite-yournonce", "x-authrite-signature", "x-authrite-certificates".'
+          description: 'This route is protected by Authrite. Ensure that the following Authrite headers are present, and that your server\'s CORS policy is configured to allow them: "x-authrite", "x-authrite-identity-key", "x-authrite-nonce", "x-authrite-yournonce", "x-authrite-signature", "x-authrite-certificates".'
         }
         socket.emit('error', error)
         return false
@@ -605,32 +601,24 @@ const middleware = (config = {}) => {
           description: 'The server was unable to verify that the value given by the "x-authrite-yournonce" HTTP header was previously generated. Ensure the value of this header is a nonce returned from a previous Authrite initial response.'
         })
       }
-      // Validate the client's request signature according to the specification
-      const signingPublicKey = getPaymentAddress({
-        senderPrivateKey: config.serverPrivateKey,
-        recipientPublicKey: req.headers['x-authrite-identity-key'],
-        invoiceNumber: `2-authrite message signature-${req.headers['x-authrite-nonce']} ${req.headers['x-authrite-yournonce']}`,
-        returnType: 'publicKey'
-      })
-      // 2. Construct the message for verification
-      let messageToVerify
+
+      // Construct the message for verification
+      let messageToSign
       if (req.method === 'GET' || req.method === 'HEAD') {
-        messageToVerify = config.baseUrl + req.originalUrl
+        messageToSign = config.baseUrl + req.originalUrl
       } else {
-        messageToVerify = req.body
+        messageToSign = req.body
           ? JSON.stringify(req.body)
           : config.baseUrl + req.originalUrl
       }
 
-      // 3. Verify the signature
-      const signature = bsv.crypto.Signature.fromString(
-        req.headers['x-authrite-signature']
-      )
-      const verified = bsv.crypto.ECDSA.verify(
-        bsv.crypto.Hash.sha256(Buffer.from(messageToVerify)),
-        signature,
-        bsv.PublicKey.fromString(signingPublicKey)
-      )
+      // Verify the authrite headers provided
+      const verified = validateAuthHeaders({
+        messageToSign,
+        authHeaders: req.headers,
+        serverPrivateKey: config.serverPrivateKey
+      })
+
       if (!verified) {
         return res.status(401).json({
           status: 'error',
@@ -645,24 +633,19 @@ const middleware = (config = {}) => {
           // NOTE: It may not be necessary to use a "signed" nonce here, and it
           // may be more secure to use a pure - random nonce.
           const responseNonce = cryptononce.createNonce(config.serverPrivateKey)
-          const derivedPrivateKey = getPaymentPrivateKey({
-            recipientPrivateKey: config.serverPrivateKey,
-            senderPublicKey: req.headers['x-authrite-identity-key'],
-            invoiceNumber: '2-authrite message signature-' + req.headers['x-authrite-initialnonce'] + ' ' + responseNonce,
-            returnType: 'hex'
-          })
-          const responseSignature = bsv.crypto.ECDSA.sign(
-            bsv.crypto.Hash.sha256(Buffer.from(JSON.stringify(json))),
-            bsv.PrivateKey.fromBuffer(Buffer.from(derivedPrivateKey, 'hex'))
+
+          // Get response Authrite headers to send back to the client
+          res.set(
+            getResponseAuthHeaders({
+              authrite: AUTHRITE_VERSION,
+              serverPrivateKey: config.serverPrivateKey,
+              clientPublicKey: req.headers['x-authrite-identity-key'],
+              clientNonce: req.headers['x-authrite-initialnonce'],
+              serverNonce: responseNonce,
+              messageToSign: JSON.stringify(json),
+              certificates: []
+            })
           )
-          res.set({
-            'x-authrite': AUTHRITE_VERSION,
-            'x-authrite-identity-key': bsv.PrivateKey.fromHex(config.serverPrivateKey).publicKey.toString(),
-            'x-authrite-nonce': responseNonce,
-            'x-authrite-yournonce': req.headers['x-authrite-nonce'],
-            'x-authrite-certificates': '[]',
-            'x-authrite-signature': responseSignature.toString()
-          })
         } catch (error) {
           console.error(error)
         } finally {
