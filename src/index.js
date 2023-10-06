@@ -1,10 +1,8 @@
 const bsv = require('babbage-bsv')
 const cryptononce = require('cryptononce')
-const AUTHRITE_VERSION = '0.2'
+const { getResponseAuthHeaders, validateAuthHeaders, validateCertificates } = require('authrite-utils')
 
-const getResponseAuthHeaders = require('./utils/getResponseAuthHeaders')
-const validateAuthHeaders = require('./utils/validateAuthHeaders')
-const validateCertificates = require('./utils/validateCertificates')
+const AUTHRITE_VERSION = '0.2'
 
 /**
  * Provides server-side access to Authrite protected sockets
@@ -196,6 +194,13 @@ class AuthSock {
   }
 
   /**
+   * Closes the socket connection
+   */
+  close () {
+    this.socket.close()
+  }
+
+  /**
    * Emits a message to the client
    * @param {*} event
    * @param {*} data
@@ -360,8 +365,13 @@ class AuthSock {
         return false
       }
 
+      debugger
       // Validate request headers
-      const verified = validateAuthHeaders({ messageToSign, authHeaders, serverPrivateKey: this.serverPrivateKey })
+      const verified = validateAuthHeaders({
+        messageToSign,
+        authHeaders,
+        serverPrivateKey: this.serverPrivateKey
+      })
       if (!verified) {
         // Return an error to the client
         const error = {
