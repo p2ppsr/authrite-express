@@ -365,7 +365,6 @@ class AuthSock {
         return false
       }
 
-      debugger
       // Validate request headers
       const verified = validateAuthHeaders({
         messageToSign,
