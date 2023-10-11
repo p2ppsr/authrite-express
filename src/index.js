@@ -6,8 +6,15 @@ const AUTHRITE_VERSION = '0.2'
 
 /**
  * Provides server-side access to Authrite protected sockets
+ * @public
  */
 class AuthSock {
+/**
+ * Initializes an Authrite protected socket instance
+ * @public
+ * @param {http.Server} http - The HTTP server instance
+ * @param {Object} [options={}] - Optional configurations for Socket.IO
+ */
   constructor (http, options = {}) {
     // Initialize necessary server properties
     this.socket = require('socket.io')(http, options)
@@ -56,7 +63,7 @@ class AuthSock {
     this.serverNonce = cryptononce.createNonce(this.serverPrivateKey)
 
     /**
-     * Configure web sockets initial connection middleware
+     * Configure the websocket initial connection middleware
      */
     this.socket.use((socket, next) => {
       this.setAuthenticationMiddleware(socket, next)
@@ -65,6 +72,7 @@ class AuthSock {
 
   /**
    * Retrieves the unique identifier for the socket connection
+   * @public
    * @returns {string} - The socket ID
    */
   get id () {
@@ -73,6 +81,7 @@ class AuthSock {
 
   /**
    * Retrieves the list of rooms that the socket is currently in
+   * @public
    * @returns {Set<string>} - A set containing the names of the rooms
    */
   get rooms () {
@@ -81,6 +90,7 @@ class AuthSock {
 
   /**
    * Retrieves information about the initial handshake when the socket connection was established
+   * @public
    * @returns {Object} - Handshake information including headers, address, secure, etc.
    */
   get handshake () {
@@ -89,9 +99,8 @@ class AuthSock {
 
   setAuthenticationMiddleware (socket, next) {
     try {
-      // Note: does the header naming scheme here conform to the Authrite spec?
-      // TODO: Write tests for all of these
-      // Note: Consider if there's an easy way to combine the middleware and socket error checking
+      // TODO: Write tests for these error cases
+      // Note: Consider combining the middleware and socket error checking
       if (!socket.request.headers['x-authrite']) {
         // Return error to client
         const error = new Error('The Authrite initial request body must contain an "authrite" property stipulating which version to use.')
@@ -152,6 +161,7 @@ class AuthSock {
 
   /**
    * Registers a middleware function to intercept events on the socket
+   * @public
    * @param {Socket} socket - The socket object to apply the middleware to
    * @param {function} next - The callback function to call after the middleware completes
    */
@@ -163,6 +173,7 @@ class AuthSock {
 
   /**
    * Joins the socket to a specified room
+   * @public
    * @param {string} room - The name of the room to join
    */
   join (room) {
@@ -171,6 +182,7 @@ class AuthSock {
 
   /**
    * Leaves a specified room
+   * @public
    * @param {string} room - The name of the room to leave
    */
   leave (room) {
@@ -179,6 +191,7 @@ class AuthSock {
 
   /**
    * Sends a message to all clients in a specified room
+   * @public
    * @param {string} room - The name of the room to send the message to
    * @returns {Socket} - A reference to the socket
    */
@@ -188,6 +201,7 @@ class AuthSock {
 
   /**
    * Disconnects the socket from the server
+   * @public
    */
   disconnect () {
     this.socket.disconnect()
@@ -195,6 +209,7 @@ class AuthSock {
 
   /**
    * Closes the socket connection
+   * @public
    */
   close () {
     this.socket.close()
@@ -202,8 +217,9 @@ class AuthSock {
 
   /**
    * Emits a message to the client
-   * @param {*} event
-   * @param {*} data
+   * @public
+   * @param {string} event - The type of event to emit
+   * @param {object | string | Buffer} data - The data to send with the event
    */
   emit (event, data) {
     for (const socketId in this.clients) {
@@ -233,9 +249,10 @@ class AuthSock {
   }
 
   /**
-   * Custom configured web sockets on method
-   * @param {*} event
-   * @param {function} callback
+   * Custom configured websocket on method
+   * @public
+   * @param {string} event - The type of event to handle
+   * @param {function} callback - The callback function to be executed when the event occurs
    */
   on (event, callback) {
     // Keep track of the current instance
@@ -304,7 +321,14 @@ class AuthSock {
     }
   }
 
-  // Helper function for authenticating the incoming request
+  /**
+   * Helper function for authenticating the incoming request
+   * @param {Object} obj - An object containing parameters for authentication
+   * @param {Socket} obj.socket - The socket object for the incoming request
+   * @param {string} obj.messageToSign - The message to be signed for authentication
+   * @param {Object} obj.authHeaders - Client headers used for authentication
+   * @returns {Promise<boolean>} - A promise that resolves with the authentication result
+   */
   async authenticateRequest ({ socket, messageToSign, authHeaders }) {
     try {
       // Make sure the required headers are provided
@@ -419,6 +443,7 @@ class AuthSock {
 
 /**
  * Authrite express middleware for providing mutual authentication with a client
+ * @public
  * @param {object} config Configures the middleware with initial parameters
  * @param {String} config.serverPrivateKey The server's private key used for derivations
  * @param {Object} config.requestedCertificates The RequestedCertificateSet that the server will send to client. An object with `certifiers` and `types`, as per the Authrite specification.
