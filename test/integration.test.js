@@ -327,17 +327,16 @@ describe('authrite http client-server integration', () => {
 
 describe('authrite socket client-server integration', () => {
   beforeAll(async () => {
-    beforeAll(async () => {
-      await setupTestServer()
-    })
-    afterAll(() => {
-      // server.close()
-    })
-    afterEach(() => {
-      // jest.clearAllMocks()
-    })
+    await setupTestServer()
+  })
+  // afterAll(() => {
+  //   // server.close()
+  // })
+  afterEach(() => {
+    // jest.clearAllMocks()
   })
   afterAll(async () => {
+    // server.close()
     jest.clearAllMocks()
   })
   it('initiate a new socket connection', async () => {
