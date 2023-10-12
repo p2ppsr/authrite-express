@@ -9,47 +9,72 @@ let TEST_SERVER_BASEURL = 'http://localhost:'
 // Example express server that makes use of authrite middleware
 const express = require('express')
 const app = express()
-const authrite = require('../index')
+const authrite = require('../src/index')
 // Set a data limit to allow larger payloads
 app.use(express.json({ limit: '50mb', extended: true }))
 app.use(express.urlencoded({ limit: '50mb', extended: true }))
+const http = require('http').Server(app)
 
 let server
-describe('authrite', () => {
-  beforeAll(async () => {
-    // Wait to start the server before running tests.
-    TEST_SERVER_BASEURL += await new Promise((resolve, reject) => {
-      try {
-        server = app.listen(0, () => {
-          // Add the Authrite middleware
-          app.use(authrite.middleware({
-            serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
-            baseUrl: `http://localhost:${server.address().port}`
-          }))
 
-          // Example Routes
-          app.get('/apiRoute', (req, res) => {
-            res.json({ message: 'success' })
-          })
-          app.post('/apiRoute', (req, res) => {
-            res.json({ user: 'data' })
-          })
-          app.get('/getData', (req, res) => {
-            res.json({ user: 'data' })
-          })
-          app.post('/sendSomeData', (req, res) => {
-            res.json({
-              message: 'Hello, this is the server. Here is the data you sent:',
-              clientData: req.body
+const setupTestServer = async () => {
+  // Wait to start the server before running tests.
+  TEST_SERVER_BASEURL += await new Promise((resolve, reject) => {
+    try {
+      server = app.listen(0, () => {
+        // Initialize AuthSock instance
+        const io = authrite.socket(http, {
+          cors: {
+            origin: '*'
+          },
+          serverPrivateKey: TEST_SERVER_PRIVATE_KEY
+        })
+
+        // Setup test socket events
+        io.on('connection', function (socket) {
+          console.log('A user connected')
+          socket.on('chatMessage', (userID) => {
+            // Send a reply
+            io.emit('chatMessage', {
+              id: socket.id,
+              identityKey: userID
             })
           })
-
-          resolve(server.address().port)
         })
-      } catch (e) {
-        reject(e)
-      }
-    })
+
+        // Add the Authrite middleware
+        app.use(authrite.middleware({
+          serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
+          baseUrl: `http://localhost:${server.address().port}`
+        }))
+
+        // Example Routes
+        app.get('/apiRoute', (req, res) => {
+          res.json({ message: 'success' })
+        })
+        app.post('/apiRoute', (req, res) => {
+          res.json({ user: 'data' })
+        })
+        app.get('/getData', (req, res) => {
+          res.json({ user: 'data' })
+        })
+        app.post('/sendSomeData', (req, res) => {
+          res.json({
+            message: 'Hello, this is the server. Here is the data you sent:',
+            clientData: req.body
+          })
+        })
+
+        resolve(server.address().port)
+      })
+    } catch (e) {
+      reject(e)
+    }
+  })
+}
+describe('authrite http client-server integration', () => {
+  beforeAll(async () => {
+    await setupTestServer()
   })
   afterAll(() => {
     server.close()
@@ -79,7 +104,7 @@ describe('authrite', () => {
       headers: {
         'Content-Type': 'application/json'
       }
-    })).rejects.toHaveProperty('message', 'The first argument must be of type string or an instance of Buffer, ArrayBuffer, or Array or an Array-like Object. Received null')
+    })).rejects.toHaveProperty('message', `The requested route at ${TEST_SERVER_BASEURL}/someRandomRoute was not found!`)
   }, 100000)
 
   it('Throws an error if an invalid request method is provided', async () => {
@@ -190,7 +215,7 @@ describe('authrite', () => {
       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
     })
     // Get image buffer from local test file
-    const filePath = './src/_tests/images/'
+    const filePath = './test/images/'
     const dataBuffer = Buffer.from(await fs.readFile(filePath + 'inputTestImage.png'), 'utf-8')
     const body = {
       user: 'Bob',
@@ -299,3 +324,60 @@ describe('authrite', () => {
     ))
   }, 100000)
 })
+
+describe('authrite socket client-server integration', () => {
+  beforeAll(async () => {
+    await setupTestServer()
+  })
+  // afterAll(() => {
+  //   // server.close()
+  // })
+  afterEach(() => {
+    // jest.clearAllMocks()
+  })
+  afterAll(async () => {
+    // server.close()
+    jest.clearAllMocks()
+  })
+  it('initiate a new socket connection', async () => {
+    const authrite = await new Authrite({
+      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
+    }).connect(TEST_SERVER_BASEURL)
+    // TODO: resolve xhr poll error
+  })
+})
+
+// describe('basic socket.io example', () => {
+//   beforeAll(async () => {
+//     await setupTestServer()
+//   })
+//   afterAll(() => {
+//     server.close()
+//   })
+//   afterEach(() => {
+//     jest.clearAllMocks()
+//   })
+//   test('should communicate', (done) => {
+//     // once connected, emit Hello World
+//     // ioServer.emit('echo', 'Hello World')
+//     // socket.once('echo', (message) => {
+//     //   // Check that the message matches
+//     //   expect(message).toBe('Hello World')
+//     //   done()
+//     // })
+//     // ioServer.on('connection', (mySocket) => {
+//     //   expect(mySocket).toBeDefined()
+//     // })
+//     expect('test').toEqual('test')
+//   })
+//   // test('should communicate with waiting for socket.io handshakes', (done) => {
+//   //   // // Emit sth from Client do Server
+//   //   // socket.emit('examlpe', 'some messages')
+//   //   // // Use timeout to wait for socket.io server handshakes
+//   //   // setTimeout(() => {
+//   //   //   // Put your server side expect() here
+//   //   //   done()
+//   //   // }, 50)
+//   //   expect(1).toEqual(1)
+//   // })
+// })
