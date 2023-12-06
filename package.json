@@ -27,7 +27,7 @@
     "socket.io": "^4.7.2"
   },
   "devDependencies": {
-    "authrite-js": "^0.3.1",
+    "authrite-js": "^0.3.4",
     "documentation": "^14.0.0",
     "express": "^4.18.1",
     "jest": "^28.0.3",
