@@ -7,9 +7,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "doc": "documentation readme src/index.js -f md -s API -a public",
-    "tonpm": "npm run tonone && npm i authrite.js --silent",
-    "tonone": "npm r authrite-js --silent"
+    "doc": "documentation readme src/index.js -f md -s API -a public"
   },
   "repository": {
     "type": "git",
