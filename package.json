@@ -7,7 +7,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "doc": "documentation readme src/index.js -f md -s API -a public"
+    "doc": "documentation readme src/index.js -f md -s API -a public",
+    "tonpm": "npm run tonone && npm i authrite.js --silent",
+    "tonone": "npm r authrite-js --silent"
   },
   "repository": {
     "type": "git",
@@ -27,7 +29,6 @@
     "socket.io": "^4.7.2"
   },
   "devDependencies": {
-    "authrite-js": "^0.3.4",
     "documentation": "^14.0.0",
     "express": "^4.18.1",
     "jest": "^28.0.3",
