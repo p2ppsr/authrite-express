@@ -20,7 +20,7 @@
   },
   "homepage": "https://github.com/p2ppsr/authrite-express#readme",
   "dependencies": {
-    "authrite-utils": "^0.2.14",
+    "authrite-utils": "^0.2.15",
     "babbage-bsv": "^0.2.4",
     "cryptononce": "^0.1.4",
     "sendover": "^1.2.3",
