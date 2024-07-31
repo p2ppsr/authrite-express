@@ -9,13 +9,13 @@ const AUTHRITE_VERSION = '0.2'
  * @public
  */
 class AuthSock {
-/**
- * Initializes an Authrite protected socket instance
- * @public
- * @param {http.Server} http - The HTTP server instance
- * @param {Object} [options={}] - Optional configurations for Socket.IO
- */
-  constructor (http, options = {}) {
+  /**
+   * Initializes an Authrite protected socket instance
+   * @public
+   * @param {http.Server} http - The HTTP server instance
+   * @param {Object} [options={}] - Optional configurations for Socket.IO
+   */
+  constructor(http, options = {}) {
     // Initialize necessary server properties
     this.socket = require('socket.io')(http, options)
     this.options = options
@@ -75,7 +75,7 @@ class AuthSock {
    * @public
    * @returns {string} - The socket ID
    */
-  get id () {
+  get id() {
     return this.socket.id
   }
 
@@ -84,7 +84,7 @@ class AuthSock {
    * @public
    * @returns {Set<string>} - A set containing the names of the rooms
    */
-  get rooms () {
+  get rooms() {
     return this.socket.rooms
   }
 
@@ -93,11 +93,11 @@ class AuthSock {
    * @public
    * @returns {Object} - Handshake information including headers, address, secure, etc.
    */
-  get handshake () {
+  get handshake() {
     return this.socket.handshake
   }
 
-  setAuthenticationMiddleware (socket, next) {
+  setAuthenticationMiddleware(socket, next) {
     try {
       // TODO: Write tests for these error cases
       // Note: Consider combining the middleware and socket error checking
@@ -116,7 +116,7 @@ class AuthSock {
         return
       }
       if (!socket.request.headers['x-authrite-identity-key'] ||
-         !socket.request.headers['x-authrite-nonce']) {
+        !socket.request.headers['x-authrite-nonce']) {
         // Return error to client
         const error = new Error('The Authrite initial request is missing required fields from its JSON request body object. The required fields are: "authrite", "identityKey", and "nonce"')
         error.code = 'ERR_AUTHRITE_MISSING_INITIAL_REQUEST_PARAMS'
@@ -165,8 +165,8 @@ class AuthSock {
    * @param {Socket} socket - The socket object to apply the middleware to
    * @param {function} next - The callback function to call after the middleware completes
    */
-  use (socket, next) {
-  // TODO: Test this function
+  use(socket, next) {
+    // TODO: Test this function
     this.setAuthenticationMiddleware(socket, next)
     this.socket.use(socket, next)
   }
@@ -176,7 +176,7 @@ class AuthSock {
    * @public
    * @param {string} room - The name of the room to join
    */
-  join (room) {
+  join(room) {
     this.socket.join(room)
   }
 
@@ -185,7 +185,7 @@ class AuthSock {
    * @public
    * @param {string} room - The name of the room to leave
    */
-  leave (room) {
+  leave(room) {
     this.socket.leave(room)
   }
 
@@ -195,7 +195,7 @@ class AuthSock {
    * @param {string} room - The name of the room to send the message to
    * @returns {Socket} - A reference to the socket
    */
-  to (room) {
+  to(room) {
     return this.socket.to(room)
   }
 
@@ -203,7 +203,7 @@ class AuthSock {
    * Disconnects the socket from the server
    * @public
    */
-  disconnect () {
+  disconnect() {
     this.socket.disconnect()
   }
 
@@ -211,7 +211,7 @@ class AuthSock {
    * Closes the socket connection
    * @public
    */
-  close () {
+  close() {
     this.socket.close()
   }
 
@@ -221,7 +221,7 @@ class AuthSock {
    * @param {string} event - The type of event to emit
    * @param {object | string | Buffer} data - The data to send with the event
    */
-  emit (event, data) {
+  emit(event, data) {
     for (const socketId in this.clients) {
       try {
         // Get auth headers to send to each client
@@ -254,7 +254,7 @@ class AuthSock {
    * @param {string} event - The type of event to handle
    * @param {function} callback - The callback function to be executed when the event occurs
    */
-  on (event, callback) {
+  on(event, callback) {
     // Keep track of the current instance
     const authSockInstance = this
     if (typeof callback === 'function') {
@@ -277,7 +277,7 @@ class AuthSock {
                 authHeaders: body.headers
               })
               if (authenticated) {
-              // Invoke the expected inner callback function
+                // Invoke the expected inner callback function
                 innerCallback(body.data)
               }
             } else {
@@ -329,7 +329,7 @@ class AuthSock {
    * @param {Object} obj.authHeaders - Client headers used for authentication
    * @returns {Promise<boolean>} - A promise that resolves with the authentication result
    */
-  async authenticateRequest ({ socket, messageToSign, authHeaders }) {
+  async authenticateRequest({ socket, messageToSign, authHeaders }) {
     try {
       // Make sure the required headers are provided
       if (!authHeaders['x-authrite']) {
@@ -701,7 +701,7 @@ const middleware = (config = {}) => {
 
       // Validate each certificate provided
       const response = await validateCertificates({
-        serverPrivateKey: this.serverPrivateKey,
+        serverPrivateKey: config.serverPrivateKey,
         identityKey: req.headers['x-authrite-identity-key'],
         certificates
       })
