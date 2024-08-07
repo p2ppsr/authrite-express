@@ -1,6 +1,7 @@
 /* eslint-env jest */
 const { Authrite } = require('authrite-js')
 const fs = require('fs').promises
+const BabbageSDK = require('@babbage/sdk-ts')
 
 const TEST_CLIENT_PRIVATE_KEY = '0d7889a0e56684ba795e9b1e28eb906df43454f8172ff3f6807b8cf9464994df'
 const TEST_SERVER_PRIVATE_KEY = '6dcc124be5f382be631d49ba12f61adbce33a5ac14f6ddee12de25272f943f8b'
@@ -16,6 +17,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }))
 const http = require('http').Server(app)
 
 let server
+let requestCertificates = false
 
 const setupTestServer = async () => {
   // Wait to start the server before running tests.
@@ -45,7 +47,20 @@ const setupTestServer = async () => {
         // Add the Authrite middleware
         app.use(authrite.middleware({
           serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
-          baseUrl: `http://localhost:${server.address().port}`
+          baseUrl: `http://localhost:${server.address().port}`,
+          requestedCertificates: requestCertificates
+            ? {
+              // Specify the types of certificates to request...
+              // Here, we are requesting a "Cool Person Certificate"
+              types: {
+                // Provide an arra of fields the client should reveal for each type
+                // of certificate which you request
+                'AGfk/WrT1eBDXpz3mcw386Zww2HmqcIn3uY6x4Af1eo=': ['cool']
+              },
+              // Provide a list of certifiers you trust. Here, we are trusting
+              // CoolCert, the CA that issues Cool Person Certificates.
+              certifiers: ['0220529dc803041a83f4357864a09c717daa24397cf2f3fc3a5745ae08d30924fd', '0247431387e513406817e5e8de00901f8572759012f5ed89b33857295bcc2651f8']
+            } : undefined
         }))
 
         // Example Routes
@@ -82,26 +97,6 @@ describe('authrite http client-server integration', () => {
   afterEach(() => {
     jest.clearAllMocks()
   })
-
-  // Note: This is not a full test of the get certificate code as it was not possible 
-  // to use jest.spyOn() to monitor the calling of BabbageSDK.getCertificates() due to 
-  // its depth of nesting. This test just confirms that a response is recieved from the
-  // Authrite server back to the client.
-  // Note: a running MNC is required for this test.
-  it('Creates a cool certificate request from the client to the server and confirms a response is returned', async () => {
-
-    // This ensures the special case of cool certificates is selected in the server
-    includeCerts = true
-    const authrite = new Authrite({
-
-      // This ensures the signing strategy is 'Babbage'(default) if MNC is running
-      //clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
-      initialRequestPath: '/authrite/initialRequest'
-    })
-    const response = await authrite.request(TEST_SERVER_BASEURL + '/apiRoute')
-    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
-    expect(responseData).toEqual({ message: 'success' })
-  }, 100000)
 
   // Note: clientPrivateKey and baseUrl requirements tested in authrite.test.js
   it('Creates an initial request from the client to the server', async () => {
@@ -289,7 +284,7 @@ describe('authrite http client-server integration', () => {
     })
     // An example song object that can be used in a request body
     class Song {
-      constructor (title, length, artist) {
+      constructor(title, length, artist) {
         this.title = title
         this.length = length
         this.artist = artist
@@ -345,27 +340,58 @@ describe('authrite http client-server integration', () => {
   }, 100000)
 })
 
-describe('authrite socket client-server integration', () => {
+describe('authrite http client-server integration with request certificates', () => {
   beforeAll(async () => {
+    // This ensures the server requires a CoolCert certificate from the client
+    requestCertificates = true
     await setupTestServer()
   })
-  // afterAll(() => {
-  //   // server.close()
-  // })
-  afterEach(() => {
-    // jest.clearAllMocks()
+  afterAll(() => {
+    server.close()
   })
-  afterAll(async () => {
-    // server.close()
+  afterEach(() => {
     jest.clearAllMocks()
   })
-  it('initiate a new socket connection', async () => {
-    const authrite = await new Authrite({
-      clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
-    }).connect(TEST_SERVER_BASEURL)
-    // TODO: resolve xhr poll error
-  })
+  // This test ensures that the requested certificates are returned from the server,
+  // AND that the client uses the Babbage SDK to check if a matching certificate is found using getCertificates().
+  // Note: A running MetaNet Client is required for this test!
+  it('Creates a cool certificate request from the client to the server and confirms a response is returned', async () => {
+    const getCertificatesSpy = jest.spyOn(BabbageSDK, 'getCertificates')
+
+    // This will default to a signing strategy that uses the Babbage SDK
+    const authrite = new Authrite({
+      initialRequestPath: '/authrite/initialRequest'
+    })
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/apiRoute')
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData).toEqual({ message: 'success' })
+
+    // Make sure the getCertificates function was called
+    expect(getCertificatesSpy).toHaveBeenCalled()
+  }, 100000)
 })
+
+// describe('authrite socket client-server integration', () => {
+//   beforeAll(async () => {
+//     await setupTestServer()
+//   })
+//   // afterAll(() => {
+//   //   // server.close()
+//   // })
+//   afterEach(() => {
+//     // jest.clearAllMocks()
+//   })
+//   afterAll(async () => {
+//     // server.close()
+//     jest.clearAllMocks()
+//   })
+//   it('initiate a new socket connection', async () => {
+//     const authrite = await new Authrite({
+//       clientPrivateKey: TEST_CLIENT_PRIVATE_KEY
+//     }).connect(TEST_SERVER_BASEURL)
+//     // TODO: resolve xhr poll error
+//   })
+// })
 
 // describe('basic socket.io example', () => {
 //   beforeAll(async () => {
