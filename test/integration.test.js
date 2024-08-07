@@ -83,6 +83,26 @@ describe('authrite http client-server integration', () => {
     jest.clearAllMocks()
   })
 
+  // Note: This is not a full test of the get certificate code as it was not possible 
+  // to use jest.spyOn() to monitor the calling of BabbageSDK.getCertificates() due to 
+  // its depth of nesting. This test just confirms that a response is recieved from the
+  // Authrite server back to the client.
+  // Note: a running MNC is required for this test.
+  it('Creates a cool certificate request from the client to the server and confirms a response is returned', async () => {
+
+    // This ensures the special case of cool certificates is selected in the server
+    includeCerts = true
+    const authrite = new Authrite({
+
+      // This ensures the signing strategy is 'Babbage'(default) if MNC is running
+      //clientPrivateKey: TEST_CLIENT_PRIVATE_KEY,
+      initialRequestPath: '/authrite/initialRequest'
+    })
+    const response = await authrite.request(TEST_SERVER_BASEURL + '/apiRoute')
+    const responseData = JSON.parse(Buffer.from(response.body).toString('utf8'))
+    expect(responseData).toEqual({ message: 'success' })
+  }, 100000)
+
   // Note: clientPrivateKey and baseUrl requirements tested in authrite.test.js
   it('Creates an initial request from the client to the server', async () => {
     const authrite = new Authrite({
