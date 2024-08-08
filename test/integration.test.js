@@ -21,9 +21,10 @@ let requestCertificates = false
 
 const setupTestServer = async () => {
   // Wait to start the server before running tests.
-  TEST_SERVER_BASEURL += await new Promise((resolve, reject) => {
+  TEST_SERVER_BASEURL = await new Promise((resolve, reject) => {
     try {
       server = app.listen(0, () => {
+        const serverURL = `http://localhost:${server.address().port}`
         // Initialize AuthSock instance
         const io = authrite.socket(http, {
           cors: {
@@ -47,7 +48,7 @@ const setupTestServer = async () => {
         // Add the Authrite middleware
         app.use(authrite.middleware({
           serverPrivateKey: TEST_SERVER_PRIVATE_KEY,
-          baseUrl: `http://localhost:${server.address().port}`,
+          baseUrl: serverURL,
           requestedCertificates: requestCertificates
             ? {
               // Specify the types of certificates to request...
@@ -60,7 +61,8 @@ const setupTestServer = async () => {
               // Provide a list of certifiers you trust. Here, we are trusting
               // CoolCert, the CA that issues Cool Person Certificates.
               certifiers: ['0220529dc803041a83f4357864a09c717daa24397cf2f3fc3a5745ae08d30924fd', '0247431387e513406817e5e8de00901f8572759012f5ed89b33857295bcc2651f8']
-            } : undefined
+            }
+            : undefined
         }))
 
         // Example Routes
@@ -80,7 +82,7 @@ const setupTestServer = async () => {
           })
         })
 
-        resolve(server.address().port)
+        resolve(serverURL)
       })
     } catch (e) {
       reject(e)
@@ -92,7 +94,15 @@ describe('authrite http client-server integration', () => {
     await setupTestServer()
   })
   afterAll(() => {
-    server.close()
+    if (server) {
+      server.close((err) => {
+        if (err) {
+          console.error('Error closing the server:', err);
+        } else {
+          console.log('Server closed successfully.');
+        }
+      })
+    }
   })
   afterEach(() => {
     jest.clearAllMocks()
@@ -340,14 +350,24 @@ describe('authrite http client-server integration', () => {
   }, 100000)
 })
 
+// NOTE: This test may fail unless ran standalone from the above tests do to server issues
 describe('authrite http client-server integration with request certificates', () => {
   beforeAll(async () => {
     // This ensures the server requires a CoolCert certificate from the client
     requestCertificates = true
+    server.close()
     await setupTestServer()
   })
   afterAll(() => {
-    server.close()
+    if (server) {
+      server.close((err) => {
+        if (err) {
+          console.error('Error closing the server:', err);
+        } else {
+          console.log('Server closed successfully.');
+        }
+      })
+    }
   })
   afterEach(() => {
     jest.clearAllMocks()
